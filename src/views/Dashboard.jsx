@@ -5436,13 +5436,24 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                                     : key === 'inProgress' && projectOverviewSelected
                                       ? 0
                                       : files.length + extras.length + scopedTodos.length
+                const { columnIndex, rowIndex, rowSpan } = getCenterPanelBoxPlacement(renderIndex, centerPanelRenderCount)
+                const columnCount = getCenterPanelColumnCount(centerPanelRenderCount)
+                const rowCount    = getCenterPanelRowCount(centerPanelRenderCount)
+                const isLastColumn = columnIndex === columnCount - 1
+                const isLastRow    = rowIndex + rowSpan >= rowCount
+                const boxDividerStyle = isBoxPopout ? {} : {
+                  borderRight:  isLastColumn ? 'none' : `1px solid ${S.border}`,
+                  borderBottom: isLastRow    ? 'none' : `1px solid ${S.border}`,
+                  borderLeft:   'none',
+                  borderTop:    'none',
+                }
                 return (
                 <div
                   key={`center-panel-${isBoxPopout ? 'popout' : slotIndex}`}
-                  className="min-w-0 min-h-[150px] rounded border flex flex-col transition-colors duration-150"
+                  className="min-w-0 min-h-[150px] flex flex-col transition-colors duration-150"
                   style={!isBoxPopout && draggingCenterPanelIndex === renderIndex
-                    ? { ...S.deeper, ...boxPositionStyle, opacity: 0.58, borderColor: S.accent, transform: 'scale(0.985)' }
-                    : { ...S.deeper, ...boxPositionStyle }
+                    ? { backgroundColor: S.deeper.backgroundColor, ...boxPositionStyle, ...boxDividerStyle, opacity: 0.58, outline: `1px solid ${S.accent}`, transform: 'scale(0.985)' }
+                    : { backgroundColor: S.deeper.backgroundColor, ...boxPositionStyle, ...boxDividerStyle }
                   }
                   onDragOver={event => {
                     if (isBoxPopout || draggingCenterPanelIndex === null) return
