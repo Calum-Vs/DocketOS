@@ -1,13 +1,13 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 const COLORS = {
-  panel: '#121214',
-  hover: '#18181B',
+  panel: '#1C1C20',
+  hover: '#303038',
   selected: '#1D1B2A',
-  border: '#1F1F23',
+  border: '#34343A',
   borderStrong: '#2A2A30',
   accent: '#7A5CFF',
-  accentSoft: 'rgba(122, 92, 255, 0.16)',
+  accentSoft: '#B8AAFF',
   text: '#F5F5F7',
   muted: '#8E8E93',
   faint: '#3F3F46',
@@ -368,7 +368,7 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
               <button
                 key={item.key}
                 type="button"
-                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition hover:bg-[#1A1A1E] focus:bg-[#1A1A1E] focus:outline-none"
+                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition hover:bg-[#303038] focus:bg-[#303038] focus:outline-none"
                 style={{ color: COLORS.text }}
                 onMouseDown={() => handleMenuAction(item.key)}
               >
@@ -379,7 +379,7 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
           })}
           {flagOptions.length > 0 && (
             <div className="border-t mt-1 pt-1" style={{ borderColor: COLORS.borderStrong }}>
-              <div className="px-2.5 pb-1 text-[10px] uppercase tracking-widest" style={{ color: COLORS.faint }}>Flag</div>
+              <div className="px-2.5 pb-1 type-overline" style={{ color: COLORS.faint }}>Flag</div>
               <div className="grid grid-cols-6 gap-1 px-2.5 pb-1.5">
                 {flagOptions.map(option => (
                   <button
@@ -399,7 +399,7 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
               {flag && (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition hover:bg-[#1A1A1E] focus:bg-[#1A1A1E] focus:outline-none"
+                  className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition hover:bg-[#303038] focus:bg-[#303038] focus:outline-none"
                   style={{ color: COLORS.text }}
                   onMouseDown={event => {
                     event.preventDefault()

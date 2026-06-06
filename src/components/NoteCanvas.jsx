@@ -4,10 +4,12 @@ import CanvasConnections from './canvas/CanvasConnections.jsx'
 import { useCanvasInteractions } from './canvas/useCanvasInteractions.js'
 
 const S = {
-  panel: { backgroundColor: '#121214', borderColor: '#1F1F23' },
-  elevated: { backgroundColor: '#1A1A1E', borderColor: '#1F1F23' },
-  deeper: { backgroundColor: '#0D0D0F', borderColor: '#1F1F23' },
+  panel: { backgroundColor: '#1C1C20', borderColor: '#34343A' },
+  elevated: { backgroundColor: '#26262C', borderColor: '#34343A' },
+  deeper: { backgroundColor: '#0D0D0F', borderColor: '#34343A' },
+  hover: '#303038',
   accent: '#7A5CFF',
+  accentSoft: '#B8AAFF',
   text: '#F5F5F7',
   muted: '#8E8E93',
   dim: '#3F3F46',
@@ -725,7 +727,7 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
           top: node.y,
           width: node.width,
           minHeight: node.height,
-          backgroundColor: selected ? '#1A1A1E' : '#121214',
+          backgroundColor: selected ? S.elevated.backgroundColor : S.panel.backgroundColor,
           borderColor: selected ? S.accent : S.panel.borderColor,
           boxShadow: selected ? '0 0 0 1px rgba(122,92,255,0.32), 0 14px 34px rgba(0,0,0,0.3)' : '0 10px 28px rgba(0,0,0,0.25)',
         }}
@@ -735,7 +737,7 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
           <span className="mono grid h-7 w-7 shrink-0 place-items-center rounded border text-sm" style={{ color: isDirectory ? S.accent : S.zinc, borderColor: selected ? 'rgba(122,92,255,0.5)' : S.panel.borderColor, backgroundColor: '#0D0D0F' }}>
             {isDirectory ? (isLoading ? '...' : isOpen ? 'v' : '>') : '-'}
           </span>
-          <span className="min-w-0 flex-1 text-lg font-semibold leading-tight truncate" style={{ color: S.text }}>
+          <span className="min-w-0 flex-1 type-app-title leading-tight truncate" style={{ color: S.text }}>
             {entry.name}
           </span>
         </div>
@@ -891,14 +893,14 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
                 top: 0,
                 width: FOLDER_ROOT_WIDTH,
                 minHeight: FOLDER_ROOT_HEIGHT,
-                backgroundColor: '#121214',
+                backgroundColor: S.panel.backgroundColor,
                 borderColor: S.accent,
                 boxShadow: '0 14px 34px rgba(0,0,0,0.3)',
               }}
               title={projectRoot}
             >
               <div className="px-3 py-3">
-                <p className="mono text-[10px] uppercase tracking-widest" style={{ color: S.accent }}>Project Root</p>
+                <p className="type-overline" style={{ color: S.accent }}>Project Root</p>
                 <p className="text-sm font-semibold truncate mt-1" style={{ color: S.text }}>{basename(projectRoot)}</p>
                 <p className="mono text-[10px] truncate mt-1" style={{ color: S.zinc }}>{projectRoot}</p>
               </div>
@@ -927,20 +929,20 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
         {folderContextMenu && (
           <div
             className="fixed z-50 rounded border py-1 shadow-2xl"
-            style={{ top: folderContextMenu.y, left: folderContextMenu.x, width: 190, backgroundColor: '#121214', borderColor: S.panel.borderColor }}
+            style={{ top: folderContextMenu.y, left: folderContextMenu.x, width: 190, backgroundColor: S.panel.backgroundColor, borderColor: S.panel.borderColor }}
             onMouseDown={event => event.stopPropagation()}
           >
-            <button onClick={() => addFolderEntryToQuickLinks()} disabled={!onAddQuickLink} className="w-full text-left px-3 py-2 text-xs hover:bg-[#1A1A1E] disabled:opacity-40" style={{ color: S.text }}>Add to Quick Links</button>
-            <button onClick={() => { openFolderEntry(folderContextMenu.entry); setFolderContextMenu(null) }} className="w-full text-left px-3 py-2 text-xs hover:bg-[#1A1A1E]" style={{ color: S.text }}>Open in Explorer</button>
-            {folderContextMenu.entry?.isDirectory && <button onClick={() => beginCreateFolder()} className="w-full text-left px-3 py-2 text-xs hover:bg-[#1A1A1E]" style={{ color: S.text }}>New Subfolder</button>}
-            {!folderContextMenu.entry?.isRoot && <button onClick={() => beginRenameEntry()} className="w-full text-left px-3 py-2 text-xs hover:bg-[#1A1A1E]" style={{ color: S.text }}>Rename</button>}
+            <button onClick={() => addFolderEntryToQuickLinks()} disabled={!onAddQuickLink} className="w-full text-left px-3 py-2 text-xs hover:bg-[#303038] disabled:opacity-40" style={{ color: S.text }}>Add to Quick Links</button>
+            <button onClick={() => { openFolderEntry(folderContextMenu.entry); setFolderContextMenu(null) }} className="w-full text-left px-3 py-2 text-xs hover:bg-[#303038]" style={{ color: S.text }}>Open in Explorer</button>
+            {folderContextMenu.entry?.isDirectory && <button onClick={() => beginCreateFolder()} className="w-full text-left px-3 py-2 text-xs hover:bg-[#303038]" style={{ color: S.text }}>New Subfolder</button>}
+            {!folderContextMenu.entry?.isRoot && <button onClick={() => beginRenameEntry()} className="w-full text-left px-3 py-2 text-xs hover:bg-[#303038]" style={{ color: S.text }}>Rename</button>}
           </div>
         )}
 
         {folderEditDialog && (
           <div className="absolute inset-0 z-40 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.62)' }}>
             <div className="rounded border p-4 w-[360px]" style={S.panel}>
-              <h3 className="mono text-xs uppercase tracking-widest" style={{ color: S.muted }}>{folderEditDialog.mode === 'create' ? 'New Subfolder' : 'Rename Item'}</h3>
+              <h3 className="type-panel-title" style={{ color: S.muted }}>{folderEditDialog.mode === 'create' ? 'New Subfolder' : 'Rename Item'}</h3>
               <input
                 autoFocus
                 value={folderEditDialog.value}
@@ -950,7 +952,7 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
                   if (event.key === 'Escape') setFolderEditDialog(null)
                 }}
                 className="mt-3 w-full rounded border text-sm outline-none"
-                style={{ backgroundColor: '#1A1A1E', borderColor: S.panel.borderColor, color: S.text, padding: '8px 10px', userSelect: 'text' }}
+                style={{ backgroundColor: S.elevated.backgroundColor, borderColor: S.panel.borderColor, color: S.text, padding: '8px 10px', userSelect: 'text' }}
               />
               {folderEditDialog.error && <p className="mt-2 text-xs" style={{ color: '#FF453A' }}>{folderEditDialog.error}</p>}
               <div className="mt-4 flex justify-end gap-2">
@@ -970,7 +972,7 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
       className="flex-1 min-h-0 relative overflow-hidden"
       style={{
         backgroundColor: '#050506',
-        backgroundImage: 'radial-gradient(#1f1f23 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(#34343A 1px, transparent 1px)',
         backgroundSize: `${28 * zoom}px ${28 * zoom}px`,
         backgroundPosition: `${pan.x}px ${pan.y}px`,
         cursor: isPanning ? 'grabbing' : spaceHeld ? 'grab' : 'default',
@@ -1007,7 +1009,7 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
         <div
           className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 rounded border px-4 py-2 text-xs mono pointer-events-none"
           style={{
-            backgroundColor: '#121214',
+            backgroundColor: S.panel.backgroundColor,
             borderColor: exportStatus.ok ? '#16a34a' : '#dc2626',
             color: exportStatus.ok ? '#16a34a' : '#ff453a',
           }}
@@ -1021,7 +1023,7 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
         <button
           onClick={triggerImagePicker}
           className="mono text-xs px-2 py-1 rounded border hover:border-[#7A5CFF] hover:text-white transition"
-          style={{ borderColor: '#1F1F23', color: '#52525B', backgroundColor: '#0D0D0F' }}
+          style={{ borderColor: '#34343A', color: '#52525B', backgroundColor: '#0D0D0F' }}
           title="Add image note"
         >
           + Image
@@ -1029,18 +1031,18 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
         <button
           onClick={() => setZoom(z => clamp(z * 0.9, MIN_NOTES_ZOOM, MAX_NOTES_ZOOM))}
           className="mono text-xs px-2 py-1 rounded border hover:border-[#7A5CFF] hover:text-white transition"
-          style={{ borderColor: '#1F1F23', color: '#52525B', backgroundColor: '#0D0D0F' }}
+          style={{ borderColor: '#34343A', color: '#52525B', backgroundColor: '#0D0D0F' }}
           title="Zoom out"
         >
           −
         </button>
-        <span className="mono text-[10px] rounded border px-2 py-1" style={{ borderColor: '#1F1F23', color: '#8E8E93', backgroundColor: '#0D0D0F' }}>
+        <span className="mono text-[10px] rounded border px-2 py-1" style={{ borderColor: '#34343A', color: '#8E8E93', backgroundColor: '#0D0D0F' }}>
           {Math.round(zoom * 100)}%
         </span>
         <button
           onClick={() => setZoom(z => clamp(z * 1.1, MIN_NOTES_ZOOM, MAX_NOTES_ZOOM))}
           className="mono text-xs px-2 py-1 rounded border hover:border-[#7A5CFF] hover:text-white transition"
-          style={{ borderColor: '#1F1F23', color: '#52525B', backgroundColor: '#0D0D0F' }}
+          style={{ borderColor: '#34343A', color: '#52525B', backgroundColor: '#0D0D0F' }}
           title="Zoom in"
         >
           +
@@ -1048,7 +1050,7 @@ export default function NoteCanvas({ projectId, projectRoot, subprojectId, subpr
         <button
           onClick={resetNotesView}
           className="mono text-xs px-2 py-1 rounded border hover:border-[#7A5CFF] hover:text-white transition"
-          style={{ borderColor: '#1F1F23', color: '#52525B', backgroundColor: '#0D0D0F' }}
+          style={{ borderColor: '#34343A', color: '#52525B', backgroundColor: '#0D0D0F' }}
           title="Reset view to origin"
         >
           ⌂ Reset

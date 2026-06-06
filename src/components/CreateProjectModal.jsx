@@ -1,11 +1,12 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 
 const S = {
   overlay:  { backgroundColor: 'rgba(0,0,0,0.7)' },
-  modal:    { backgroundColor: '#121214', border: '1px solid #1F1F23', borderRadius: '6px', width: '480px' },
-  input:    { backgroundColor: '#1A1A1E', border: '1px solid #1F1F23', borderRadius: '4px', color: '#F5F5F7', outline: 'none', padding: '8px 12px', fontSize: '13px', width: '100%' },
+  modal:    { backgroundColor: '#1C1C20', border: '1px solid #34343A', borderRadius: '6px', width: '480px' },
+  input:    { backgroundColor: '#26262C', border: '1px solid #34343A', borderRadius: '4px', color: '#F5F5F7', outline: 'none', padding: '8px 12px', fontSize: '13px', width: '100%' },
   label:    { fontSize: '12px', color: '#8E8E93', marginBottom: '4px', display: 'block' },
   accent:   '#7A5CFF',
+  hover:    '#303038',
 }
 
 export default function CreateProjectModal({ onCreated, onClose }) {
@@ -54,7 +55,7 @@ export default function CreateProjectModal({ onCreated, onClose }) {
             onClick={onClose}
             className="text-xs hover:text-white transition"
             style={{ color: '#8E8E93' }}
-          >✕</button>
+          >?</button>
         </div>
 
         <div>
@@ -91,7 +92,7 @@ export default function CreateProjectModal({ onCreated, onClose }) {
             <button
               onClick={handleBrowse}
               className="text-xs px-3 py-2 rounded border hover:border-[#3A3A40] transition shrink-0"
-              style={{ backgroundColor: '#1A1A1E', borderColor: '#1F1F23', color: '#8E8E93' }}
+              style={{ backgroundColor: '#26262C', borderColor: '#34343A', color: '#8E8E93' }}
             >
               Browse
             </button>
@@ -106,7 +107,7 @@ export default function CreateProjectModal({ onCreated, onClose }) {
           <button
             onClick={onClose}
             className="text-xs px-4 py-2 rounded border transition"
-            style={{ backgroundColor: '#1A1A1E', borderColor: '#1F1F23', color: '#8E8E93' }}
+            style={{ backgroundColor: '#26262C', borderColor: '#34343A', color: '#8E8E93' }}
           >
             Cancel
           </button>

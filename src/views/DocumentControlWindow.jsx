@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import DocumentControlPanel from '../components/DocumentControlPanel.jsx'
 
 const S = {
-  panel: { backgroundColor: '#121214', borderColor: '#1F1F23' },
+  panel: { backgroundColor: '#1C1C20', borderColor: '#34343A' },
+  elevated: { backgroundColor: '#26262C', borderColor: '#34343A' },
   text: '#F5F5F7',
   muted: '#8E8E93',
   dim: '#3F3F46',
@@ -20,15 +21,15 @@ export default function DocumentControlWindow() {
 
   if (!activeProject) {
     return (
-      <div className="h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#080809', color: S.text }}>
+      <div className="h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#000000', color: S.text }}>
         <div className="rounded border p-5 text-center max-w-md" style={S.panel}>
-          <h1 className="mono text-xs uppercase tracking-widest" style={{ color: S.muted }}>Document Control</h1>
+          <h1 className="type-panel-title" style={{ color: S.muted }}>Document Control</h1>
           <p className="mt-3 text-sm" style={{ color: S.text }}>No active project is selected.</p>
           <p className="mono mt-2 text-xs" style={{ color: S.dim }}>Select a project in the main DocketOS window, then open Documents again.</p>
           <button
             onClick={() => window.api.documentsCloseWindow()}
             className="mt-4 rounded border px-3 py-1.5 text-xs font-medium"
-            style={{ backgroundColor: '#1A1A1E', borderColor: S.panel.borderColor, color: S.text }}
+            style={{ backgroundColor: S.elevated.backgroundColor, borderColor: S.panel.borderColor, color: S.text }}
           >
             Close
           </button>

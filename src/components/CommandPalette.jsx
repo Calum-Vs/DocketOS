@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 
 const S = {
-  panel: { backgroundColor: '#121214', borderColor: '#1F1F23' },
-  elevated: { backgroundColor: '#1A1A1E', borderColor: '#1F1F23' },
+  panel: { backgroundColor: '#1C1C20', borderColor: '#34343A' },
+  elevated: { backgroundColor: '#26262C', borderColor: '#34343A' },
+  hover: '#303038',
   text: '#F5F5F7',
   muted: '#8E8E93',
   zinc: '#52525B',
   accent: '#7A5CFF',
+  accentSoft: '#B8AAFF',
 }
 
 export default function CommandPalette({ activeProject, onClose, onRunIndex, onImport, onExport, onGenerateBrief, onOpenSettings }) {
@@ -43,7 +45,7 @@ export default function CommandPalette({ activeProject, onClose, onRunIndex, onI
     <div className="fixed inset-0 z-[140] flex items-start justify-center pt-24" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }} onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <div className="w-[620px] rounded border shadow-2xl overflow-hidden" style={S.panel} onMouseDown={event => event.stopPropagation()}>
         <div className="p-3 border-b" style={{ borderColor: S.panel.borderColor }}>
-          <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Run a DocketOS command" className="w-full rounded border outline-none text-sm" style={{ backgroundColor: '#1A1A1E', borderColor: S.panel.borderColor, color: S.text, padding: '10px 12px' }} />
+          <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Run a DocketOS command" className="w-full rounded border outline-none text-sm" style={{ backgroundColor: S.elevated.backgroundColor, borderColor: S.panel.borderColor, color: S.text, padding: '10px 12px' }} />
         </div>
         <div className="max-h-[360px] overflow-y-auto p-2">
           {filtered.map(command => (

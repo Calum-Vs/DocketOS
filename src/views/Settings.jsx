@@ -840,7 +840,7 @@ export default function Settings({ onBack }) {
 
         {/* Gemini API Key */}
         <section>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+          <p className="type-section-heading text-text-muted mb-3">
             Gemini API Key
           </p>
           <div className="flex gap-2">
@@ -876,7 +876,7 @@ export default function Settings({ onBack }) {
 
         {/* Section 1: Gemini System Prompt */}
         <section>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+          <p className="type-section-heading text-text-muted mb-3">
             Gemini System Prompt
           </p>
           <textarea
@@ -907,7 +907,7 @@ export default function Settings({ onBack }) {
 
         {/* Document Analysis Prompt */}
         <section>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+          <p className="type-section-heading text-text-muted mb-3">
             Document Analysis Prompt
           </p>
           <p className="text-xs text-text-muted mb-2">
@@ -941,7 +941,7 @@ export default function Settings({ onBack }) {
 
         {/* Template Files */}
         <section>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">
+          <p className="type-section-heading text-text-muted mb-1">
             Template Files
           </p>
           <p className="text-xs text-text-muted mb-3">
@@ -972,7 +972,7 @@ export default function Settings({ onBack }) {
 
         {/* Section 2: File Routing Rules */}
         <section>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+          <p className="type-section-heading text-text-muted mb-3">
             File Routing Rules
           </p>
 
@@ -1044,7 +1044,7 @@ export default function Settings({ onBack }) {
         {/* Section 3: Application Path Registry */}
         <section>
           <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+            <p className="type-section-heading text-text-muted">
               Application Path Registry
             </p>
             <span className="mono text-[10px] text-text-muted">Drag rows to reorder dashboard launchers</span>
@@ -1126,7 +1126,7 @@ export default function Settings({ onBack }) {
 
         {/* Section 5: Project Info Dropdown Lists */}
         <section>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+          <p className="type-section-heading text-text-muted mb-3">
             Project Info Dropdown Lists
           </p>
           <div className="space-y-4">
@@ -1191,7 +1191,7 @@ export default function Settings({ onBack }) {
         {/* Dashboard Side Panel Cards */}
         <section>
           <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+            <p className="type-section-heading text-text-muted">
               Dashboard Side Panel Cards
             </p>
             {sidePanelVisibilityMsg && (
@@ -1229,7 +1229,7 @@ export default function Settings({ onBack }) {
         {/* Recovery Backups */}
         <section>
           <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+            <p className="type-section-heading text-text-muted">
               Recovery Backups
             </p>
             {recoveryMsg && (

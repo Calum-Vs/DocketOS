@@ -40,7 +40,7 @@ export default function CanvasBox({ box, selected, editing, onSelect, onStartEdi
   const resizeRef = useRef(null)
   const editorRef = useRef(null)
   const saveTimer = useRef(null)
-  const borderColor = (editing || selected) ? '#7A5CFF' : '#1F1F23'
+  const borderColor = (editing || selected) ? '#7A5CFF' : '#34343A'
   const sanitizedHtml = useMemo(() => sanitizeHtml(box.html), [box.html])
 
   useEffect(() => {
@@ -206,7 +206,7 @@ export default function CanvasBox({ box, selected, editing, onSelect, onStartEdi
         top: box.y,
         width: box.width,
         height: box.height,
-        backgroundColor: '#121214',
+        backgroundColor: '#1C1C20',
         border: `1px solid ${borderColor}`,
         borderRadius: '6px',
         display: 'flex',
@@ -220,7 +220,7 @@ export default function CanvasBox({ box, selected, editing, onSelect, onStartEdi
         onPointerUp={onHeaderPointerUp}
         style={{
           minHeight: 24,
-          borderBottom: '1px solid #1F1F23',
+          borderBottom: '1px solid #34343A',
           backgroundColor: '#0D0D0F',
           display: 'flex',
           alignItems: 'center',

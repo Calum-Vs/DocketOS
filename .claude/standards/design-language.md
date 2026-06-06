@@ -12,12 +12,14 @@ This file defines the visual identity of DocketOS. When this file changes, the c
 
 | Token | Hex | Use |
 |---|---|---|
-| `bg-base` | `#080809` | App background, deepest layer |
-| `bg-surface` | `#121214` | Panel backgrounds |
-| `bg-elevated` | `#1A1A1E` | Cards, inputs, rows |
-| `border-subtle` | `#1F1F23` | All borders |
+| `bg-base` | `#000000` | App background, deepest layer |
+| `bg-surface` | `#1C1C20` | Panel backgrounds |
+| `bg-elevated` | `#26262C` | Cards, inputs, rows |
+| `bg-hover` | `#303038` | Hovered rows, selected controls, active neutral states |
+| `border-subtle` | `#34343A` | All borders |
 | `accent` | `#7A5CFF` | Primary actions, focus rings, active states |
 | `accent-hover` | `#8F74FF` | Hover state for accent elements |
+| `accent-soft` | `#B8AAFF` | Low-emphasis accent text and outlines on dark surfaces |
 | `text-primary` | `#F5F5F7` | Body text, headings |
 | `text-muted` | `#8E8E93` | Secondary labels, placeholders |
 | `status-error` | `#FF453A` | Errors, destructive actions |
@@ -30,11 +32,13 @@ Used where Tailwind utilities don't map cleanly (inline styles). Must stay in sy
 
 ```js
 const S = {
-  panel:     { backgroundColor: '#121214', borderColor: '#1F1F23' },
-  elevated:  { backgroundColor: '#1A1A1E', borderColor: '#1F1F23' },
-  deeper:    { backgroundColor: '#0D0D0F', borderColor: '#1F1F23' },
-  border:    '#1F1F23',
+  panel:     { backgroundColor: '#1C1C20', borderColor: '#34343A' },
+  elevated:  { backgroundColor: '#26262C', borderColor: '#34343A' },
+  deeper:    { backgroundColor: '#0D0D0F', borderColor: '#34343A' },
+  border:    '#34343A',
+  hover:     '#303038',
   accent:    '#7A5CFF',
+  accentSoft:'#B8AAFF',
   muted:     '#8E8E93',
   dim:       '#3F3F46',
   zinc:      '#52525B',
@@ -72,12 +76,37 @@ Used for: section labels, status codes, file paths, metadata, keyboard shortcuts
 
 | Role | Classes |
 |---|---|
-| Section label (caps) | `mono text-xs uppercase tracking-widest` |
-| Body / input | `text-sm` |
-| Caption / meta | `text-xs` |
-| Section heading | `text-xs font-semibold uppercase tracking-wider` |
+| App title / active context | `type-app-title` |
+| Panel title | `type-panel-title` |
+| Section heading | `type-section-heading` |
+| Field label | `type-field-label` |
+| Body / input / row value | `type-value` or `text-sm` where more readability is needed |
+| Caption / path / timestamp / metadata | `type-meta` |
+| Small overline label | `type-overline` |
+| Tiny badges / dense table labels | `type-tiny-label` |
+| Button / command text | `type-command` |
 
-No `text-base` or larger inside panels — the UI is dense by design.
+No `text-base` or larger inside panels — the UI is dense by design. Prefer weight, color, and tokenized emphasis over larger type. Use `tracking-wider`/`tracking-widest` sparingly; dense panels should use the compact utility classes instead.
+
+## Layout composition
+
+DocketOS uses a fixed information-workspace region map: header, left work-context panel, center workspace, right action/assistant panel, and bottom canvas. New UI should live inside one of these regions unless the workflow genuinely needs a modal or popout.
+
+Use an 8/4px rhythm adapted for dense desktop work:
+
+| Use | Size |
+|---|---|
+| Tiny icon/text gap | 4px |
+| Dense row vertical padding | 6px |
+| Compact row/card gap | 8px |
+| Side-panel section padding | 12px |
+| Major workspace/modal padding | 16px |
+
+Prefer implicit grouping before extra containers: typography, tight spacing, dividers, then background shifts. Use explicit bordered cards only for repeated rows, modals, and genuinely contained tools. Avoid card-inside-card layouts in side panels.
+
+**Centre grid uses line work, not floating boxes.** The grid has one outer border frame; slots are separated by 1px right/bottom dividers only. Slot backgrounds are transparent. Data items inside slots (task cards, file rows, timeline events) retain their own `background: #26262C; border: 1px solid #34343A; border-radius: 4px` — the contrast between frameless slots and boxed data items is intentional. The `+ Add Box` control lives in the top banner, not above the grid.
+
+Anchor controls consistently as containers scale: selectors and local context on the left, primary actions on the right, metadata pinned right, resize rails on the same edge, and secondary/destructive actions in context menus.
 
 ## Feel and tone
 

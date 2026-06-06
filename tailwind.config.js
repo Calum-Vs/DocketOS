@@ -4,12 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        'bg-base': '#080809',
-        'bg-surface': '#121214',
-        'bg-elevated': '#1A1A1E',
-        'border-subtle': '#1F1F23',
+        'bg-base': '#000000',
+        'bg-surface': '#1C1C20',
+        'bg-elevated': '#26262C',
+        'bg-hover': '#303038',
+        'border-subtle': '#34343A',
         accent: '#7A5CFF',
         'accent-hover': '#8F74FF',
+        'accent-soft': '#B8AAFF',
         'text-primary': '#F5F5F7',
         'text-muted': '#8E8E93',
         'status-error': '#FF453A',

@@ -1,13 +1,15 @@
 import { useState } from 'react'
 
 const S = {
-  panel: { backgroundColor: '#121214', borderColor: '#1F1F23' },
-  elevated: { backgroundColor: '#1A1A1E', borderColor: '#1F1F23' },
-  deeper: { backgroundColor: '#0D0D0F', borderColor: '#1F1F23' },
+  panel: { backgroundColor: '#1C1C20', borderColor: '#34343A' },
+  elevated: { backgroundColor: '#26262C', borderColor: '#34343A' },
+  deeper: { backgroundColor: '#0D0D0F', borderColor: '#34343A' },
+  hover: '#303038',
   text: '#F5F5F7',
   muted: '#8E8E93',
   zinc: '#52525B',
   accent: '#7A5CFF',
+  accentSoft: '#B8AAFF',
 }
 
 export default function IntakeWizard({ activeProject, onClose, onImported }) {
@@ -77,7 +79,7 @@ export default function IntakeWizard({ activeProject, onClose, onImported }) {
             <div className="rounded border p-3 space-y-3" style={S.deeper}>
               <p className="text-sm" style={{ color: S.text }}>Files and folders will be copied into the active project's incoming folder, then indexed into the document register.</p>
               <div className="rounded border p-2" style={S.elevated}>
-                <p className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>Destination</p>
+                <p className="type-overline" style={{ color: S.muted }}>Destination</p>
                 <p className="mono mt-1 truncate" style={{ fontSize: '11px', color: S.text }}>{activeProject?.root_path ? `${activeProject.root_path}\\incoming` : 'No active project'}</p>
               </div>
               <button onClick={() => setStep(2)} disabled={!activeProject} className="w-full text-xs py-2 rounded border disabled:opacity-40" style={{ ...S.elevated, color: S.text }}>Continue</button>

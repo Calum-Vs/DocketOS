@@ -58,11 +58,73 @@
 
 body {
   margin: 0;
-  background-color: #080809;
+  background-color: #000000;
   color: #F5F5F7;
   font-family: 'Segoe UI', 'Segoe UI Variable', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .mono {
   font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+}
+
+.type-app-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.type-panel-title {
+  font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.type-section-heading {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.type-field-label {
+  font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.type-value {
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.type-meta {
+  font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.type-overline {
+  font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.type-tiny-label {
+  font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.type-command {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
 }

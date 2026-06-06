@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import IntakeWizard from './IntakeWizard.jsx'
 
 const S = {
-  panel: { backgroundColor: '#121214', borderColor: '#1F1F23' },
-  elevated: { backgroundColor: '#1A1A1E', borderColor: '#1F1F23' },
-  deeper: { backgroundColor: '#0D0D0F', borderColor: '#1F1F23' },
+  panel: { backgroundColor: '#1C1C20', borderColor: '#34343A' },
+  elevated: { backgroundColor: '#26262C', borderColor: '#34343A' },
+  deeper: { backgroundColor: '#0D0D0F', borderColor: '#34343A' },
+  hover: '#303038',
   accent: '#7A5CFF',
+  accentSoft: '#B8AAFF',
   text: '#F5F5F7',
   muted: '#8E8E93',
   dim: '#3F3F46',
@@ -55,7 +57,7 @@ function Inspector({ document, revisions, comments, checklist, standards, brief,
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
         <section className="rounded border p-2" style={S.panel}>
-          <p className="mono text-[10px] uppercase tracking-widest mb-2" style={{ color: S.muted }}>File Inspector</p>
+          <p className="type-overline mb-2" style={{ color: S.muted }}>File Inspector</p>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div><span style={{ color: S.zinc }}>Status</span><p style={{ color: S.text }}>{document.status}</p></div>
             <div><span style={{ color: S.zinc }}>Revision</span><p style={{ color: S.text }}>{document.revision || 'None'}</p></div>
@@ -72,7 +74,7 @@ function Inspector({ document, revisions, comments, checklist, standards, brief,
         </section>
 
         <section className="rounded border p-2" style={S.panel}>
-          <p className="mono text-[10px] uppercase tracking-widest mb-2" style={{ color: S.muted }}>Revision History</p>
+          <p className="type-overline mb-2" style={{ color: S.muted }}>Revision History</p>
           <div className="space-y-1">
             {revisions.slice(0, 5).map(revision => (
               <div key={revision.id} className="rounded border p-2" style={S.elevated}>
@@ -89,7 +91,7 @@ function Inspector({ document, revisions, comments, checklist, standards, brief,
 
         <section className="rounded border p-2" style={S.panel}>
           <div className="flex items-center justify-between mb-2">
-            <p className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>QA Checklist</p>
+            <p className="type-overline" style={{ color: S.muted }}>QA Checklist</p>
             <span className="mono text-[10px]" style={{ color: S.zinc }}>{checklist.filter(i => i.done).length}/{checklist.length}</span>
           </div>
           <div className="space-y-1">
@@ -104,7 +106,7 @@ function Inspector({ document, revisions, comments, checklist, standards, brief,
 
         <section className="rounded border p-2" style={S.panel}>
           <div className="flex items-center justify-between mb-2">
-            <p className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>Review Comments</p>
+            <p className="type-overline" style={{ color: S.muted }}>Review Comments</p>
             <span className="mono text-[10px]" style={{ color: S.zinc }}>{comments.filter(c => c.status !== 'closed').length} open</span>
           </div>
           <div className="space-y-2">
@@ -125,14 +127,14 @@ function Inspector({ document, revisions, comments, checklist, standards, brief,
                 onCommentCreate(commentBody.trim())
                 setCommentBody('')
               }
-            }} placeholder="Add review comment" className="flex-1 rounded border text-xs outline-none" style={{ backgroundColor: '#1A1A1E', borderColor: S.panel.borderColor, color: S.text, padding: '6px 8px' }} />
+            }} placeholder="Add review comment" className="flex-1 rounded border text-xs outline-none" style={{ backgroundColor: '#26262C', borderColor: S.panel.borderColor, color: S.text, padding: '6px 8px' }} />
             <button onClick={() => { if (commentBody.trim()) { onCommentCreate(commentBody.trim()); setCommentBody('') } }} disabled={!commentBody.trim()} className="text-xs px-2 rounded border disabled:opacity-40" style={{ ...S.elevated, color: S.text }}>Add</button>
           </div>
         </section>
 
         <section className="rounded border p-2" style={S.panel}>
           <div className="flex items-center justify-between gap-2 mb-2">
-            <p className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>Standards + Brief</p>
+            <p className="type-overline" style={{ color: S.muted }}>Standards + Brief</p>
             <div className="flex gap-1">
               <button onClick={onRunStandards} className="mono text-[10px] px-2 py-1 rounded border" style={{ ...S.elevated, color: S.text }}>Check</button>
               <button onClick={onGenerateBrief} className="mono text-[10px] px-2 py-1 rounded border" style={{ ...S.elevated, color: S.text }}>Brief</button>
@@ -349,14 +351,14 @@ export default function DocumentControlPanel({ activeProject, variant = 'embedde
       )}
       <div className="p-3 flex items-center justify-between gap-3 border-b shrink-0" style={{ borderColor: S.panel.borderColor }}>
         <div>
-          <h2 className="mono text-xs uppercase tracking-widest" style={{ color: S.muted }}>Document Control</h2>
+          <h2 className="type-panel-title" style={{ color: S.muted }}>Document Control</h2>
           <p className="mono mt-1" style={{ fontSize: '10px', color: S.dim }}>Register, revision detection, QA comments, search, import, and local export.</p>
         </div>
         <div className="flex items-center gap-2">
           <select value="" onChange={event => {
             const view = savedViews.find(item => item.id === event.target.value)
             if (view) applySavedView(view)
-          }} disabled={!savedViews.length} className="rounded border mono text-[10px] outline-none disabled:opacity-40" style={{ backgroundColor: '#1A1A1E', borderColor: S.panel.borderColor, color: S.text, padding: '4px 6px' }}>
+          }} disabled={!savedViews.length} className="rounded border mono text-[10px] outline-none disabled:opacity-40" style={{ backgroundColor: '#26262C', borderColor: S.panel.borderColor, color: S.text, padding: '4px 6px' }}>
             <option value="">Views</option>
             {savedViews.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}
           </select>
@@ -370,10 +372,10 @@ export default function DocumentControlPanel({ activeProject, variant = 'embedde
       <div className="p-3 grid grid-cols-[minmax(360px,1fr)_320px] gap-3 flex-1 min-h-0" style={isWindow ? {} : { height: '360px' }}>
         <div className="rounded border flex flex-col min-w-0 overflow-hidden" style={S.deeper}>
           <div className="p-2 border-b flex items-center gap-2" style={{ borderColor: S.panel.borderColor }}>
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search register, comments, extracted text" className="flex-1 rounded border text-xs outline-none" style={{ backgroundColor: '#1A1A1E', borderColor: S.panel.borderColor, color: S.text, padding: '7px 10px' }} />
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search register, comments, extracted text" className="flex-1 rounded border text-xs outline-none" style={{ backgroundColor: '#26262C', borderColor: S.panel.borderColor, color: S.text, padding: '7px 10px' }} />
             <span className="mono text-[10px]" style={{ color: S.zinc }}>{rows.length}/{documents.length}</span>
           </div>
-          <div className="grid grid-cols-[1.6fr_80px_90px_90px_90px] gap-2 px-3 py-2 border-b mono text-[10px] uppercase tracking-wider" style={{ borderColor: S.panel.borderColor, color: S.muted }}>
+          <div className="grid grid-cols-[1.6fr_80px_90px_90px_90px] gap-2 px-3 py-2 border-b type-overline" style={{ borderColor: S.panel.borderColor, color: S.muted }}>
             <span>Name</span><span>Rev</span><span>Status</span><span>Size</span><span>Modified</span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -382,7 +384,7 @@ export default function DocumentControlPanel({ activeProject, variant = 'embedde
               const selected = document && selectedDocument?.id === document.id
               const typeLabel = result?.source_type ? result.source_type.replace('_', ' ') : document?.status
               return (
-                <button key={`${result?.source_type ?? 'document'}:${rowId}`} onClick={() => document?.id && setSelectedId(document.id)} className="w-full grid grid-cols-[1.6fr_80px_90px_90px_90px] gap-2 px-3 py-2 text-left border-b transition" style={{ backgroundColor: selected ? '#1A1A1E' : '#0D0D0F', borderColor: S.panel.borderColor, color: S.text }}>
+                <button key={`${result?.source_type ?? 'document'}:${rowId}`} onClick={() => document?.id && setSelectedId(document.id)} className="w-full grid grid-cols-[1.6fr_80px_90px_90px_90px] gap-2 px-3 py-2 text-left border-b transition" style={{ backgroundColor: selected ? '#26262C' : '#0D0D0F', borderColor: S.panel.borderColor, color: S.text }}>
                   <span className="min-w-0">
                     <span className="block text-xs truncate">{document?.name ?? result?.title ?? 'Search result'}</span>
                     <span className="block mono text-[10px] truncate" style={{ color: S.zinc }}>{result?.excerpt ?? document?.relative_path ?? 'No linked document'}</span>

@@ -63,7 +63,7 @@ This file is the single source of truth for how interactive elements are built i
   value={value}
   onChange={e => setValue(e.target.value)}
   className="w-full rounded border text-sm outline-none"
-  style={{ backgroundColor: '#1A1A1E', borderColor: S.border, color: S.text, padding: '7px 10px' }}
+  style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '7px 10px' }}
 >
   <option value="">Select...</option>
 </select>
@@ -121,47 +121,116 @@ Page/view section headings:
 ```jsx
 <div
   className="flex items-center gap-2 rounded border px-2 py-1.5"
-  style={{ backgroundColor: '#1A1A1E', borderColor: S.border }}
+  style={{ backgroundColor: '#26262C', borderColor: S.border }}
 >
   {/* content */}
 </div>
 ```
 
+### Centre grid — linework style
+
+The centre panel grid uses **line work**, not floating boxes. Each panel slot is borderless with a transparent background. The grid as a whole gets one outer `border` frame; slots are divided by 1px right/bottom lines only.
+
+**Grid container:**
+```jsx
+<div
+  ref={centerGridRef}
+  className="relative flex-1 min-h-0 overflow-hidden border"
+  style={{ borderColor: S.border }}
+>
+```
+
+**Per-slot box** (absolutely positioned, no own border, no background):
+```jsx
+<div
+  className="min-w-0 min-h-[150px] flex flex-col"
+  style={{
+    ...boxPositionStyle,   // pure % calc — see getCenterPanelBoxPositionStyle
+    borderRight:  isLastColumn ? 'none' : `1px solid ${S.border}`,
+    borderBottom: isLastRow    ? 'none' : `1px solid ${S.border}`,
+    borderLeft:   'none',
+    borderTop:    'none',
+  }}
+>
+```
+
+Box positions use pure percentage ratios — **no pixel insets**:
+```js
+return {
+  position: 'absolute',
+  left:   `${columnStart * 100}%`,
+  right:  `${(1 - columnEnd) * 100}%`,
+  top:    `${rowStart * 100}%`,
+  bottom: `${(1 - rowEnd) * 100}%`,
+}
+```
+
+**Panel header** — quiet, no heavy fill:
+```jsx
+<div
+  className="px-2.5 py-2 border-b flex items-center flex-wrap gap-2"
+  style={{ borderColor: '#2A2A30', backgroundColor: '#1C1C20' }}
+>
+```
+
+Header controls (drag handle, count badge, Pop Out, Remove) use `style={{ color: S.dim }}` with no background or border capsule. Use `flex-wrap` so controls wrap on narrow panels.
+
+### Text wrapping in panels
+
+| Context | Behaviour |
+|---|---|
+| File/folder entry rows (subproject browser, selected folder, recent files, flagged, timeline) | `truncate` on name (stays fixed); size/date spans use `flexShrink: 2; min-w-0; overflow-hidden; whitespace-nowrap` to clip when narrow |
+| Quick links names and paths | `break-all` — full wrap |
+| Task items, timeline event text, notes | wrap naturally |
+| Panel header controls | `flex-wrap` on the header flex row |
+
 ### File/tree filename column resize rail
 
 Use this pattern in file lists, quick links, recent files, and folder trees when filename truncation needs to be adjustable. The rail sits immediately after the filename column, appears on row hover, and uses the app's existing `col-resize` drag state.
 
+**Column width is per-slot.** Each centre-panel slot stores its own width in `fileNameColumnWidthBySlot` keyed by `String(slotIndex)`. The left-panel FolderTree uses the fixed key `'left-panel'`. Never share a single width across slots.
+
 ```jsx
-<span
-  role="separator"
-  aria-orientation="vertical"
-  title="Drag to resize filename column"
-  onMouseDown={beginFileNameColumnResize}
-  onClick={event => { event.preventDefault(); event.stopPropagation() }}
-  className="shrink-0 cursor-col-resize rounded opacity-0 transition-colors group-hover:opacity-100 hover:bg-[#7A5CFF]/60"
-  style={{ width: 6, height: 18, backgroundColor: 'rgba(122, 92, 255, 0.16)' }}
-/>
+function FileNameColumnHandle({ slotKey }) {
+  const width = getSlotFileNameWidth(slotKey)
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      title="Drag to resize filename column"
+      onMouseDown={event => beginFileNameColumnResize(event, slotKey)}
+      onClick={event => { event.preventDefault(); event.stopPropagation() }}
+      className="shrink-0 cursor-col-resize rounded opacity-0 transition-colors group-hover:opacity-100 hover:bg-[#7A5CFF]/60"
+      style={{ width: 6, height: 18, backgroundColor: 'rgba(122, 92, 255, 0.16)', transform: `translateX(${Math.max(0, width - DEFAULT_FILE_NAME_COLUMN_WIDTH)}px)`, zIndex: 3 }}
+    />
+  )
+}
 ```
 
-Filename text should widen visually without pushing metadata. Give it its dragged width, use a negative right margin for the amount wider than the default layout slot, and make the filename background opaque so it masks metadata underneath instead of making both strings readable at once. Add a flex spacer before right-side metadata so size/date fields stay pinned to the row's right edge:
+Filename text should widen visually without pushing metadata. Give it its dragged width, use a negative right margin for the amount wider than the default layout slot, and make the filename background opaque so it masks metadata underneath. Add a flex spacer before right-side metadata so size/date fields stay pinned to the row's right edge:
 
 ```jsx
-const overlap = Math.max(0, fileNameColumnWidth - DEFAULT_FILE_NAME_COLUMN_WIDTH)
-const maskBackground = extra.backgroundColor ?? S.panel.backgroundColor
-style={{
-  minWidth: 0,
-  width: `${fileNameColumnWidth}px`,
-  flex: `0 0 ${fileNameColumnWidth}px`,
-  maxWidth: `${fileNameColumnWidth}px`,
-  marginRight: overlap ? `-${overlap}px` : 0,
-  position: 'relative',
-  zIndex: 2,
-  backgroundColor: maskBackground,
-  boxShadow: `8px 0 0 ${maskBackground}`,
-}}
+function getFileNameColumnTextStyle(extra = {}, width = DEFAULT_FILE_NAME_COLUMN_WIDTH) {
+  const overlap = Math.max(0, width - DEFAULT_FILE_NAME_COLUMN_WIDTH)
+  const maskBackground = extra.backgroundColor ?? S.panel.backgroundColor
+  return {
+    minWidth: 0,
+    width: `${width}px`,
+    flex: `0 0 ${width}px`,
+    maxWidth: `${width}px`,
+    marginRight: overlap ? `-${overlap}px` : 0,
+    position: 'relative',
+    zIndex: 2,
+    backgroundColor: maskBackground,
+    boxShadow: `8px 0 0 ${maskBackground}`,
+    ...extra,
+  }
+}
 ```
 
 Move the rail by the same overlap so it remains on the visible filename edge.
+
+**Do NOT add `overflow-hidden` to draggable row containers** — it breaks HTML5 drag-and-drop in Electron. To clip right-side metadata when the panel is narrow, use `flexShrink: 2; min-w-0; overflow-hidden; whitespace-nowrap` on the individual size/date spans so they compress away while the fixed-width filename stays in place.
 
 ### Dense dashboard title selectors and context menus
 
@@ -179,7 +248,7 @@ For panel-local collections such as task lists and note sections, use a compact 
     }}
     onDoubleClick={handleRename}
     className="min-w-[120px] max-w-[180px] rounded border text-xs outline-none disabled:opacity-50"
-    style={{ backgroundColor: '#1A1A1E', borderColor: S.border, color: S.text, padding: '6px 8px' }}
+    style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px' }}
   >
     {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
   </select>
@@ -190,11 +259,11 @@ For panel-local collections such as task lists and note sections, use a compact 
 Right-click menus should carry secondary title actions such as Export and destructive actions such as Delete. Do not add inline `x` buttons to tabs or title chips when a right-click menu already exists. Put neutral actions before destructive ones.
 
 ```jsx
-<div className="fixed rounded border shadow-2xl z-[110] overflow-hidden" style={{ backgroundColor: '#121214', borderColor: '#1F1F23' }}>
-  <button className="block w-full whitespace-nowrap text-left px-3 py-2 text-sm transition hover:bg-[#1A1A1E]" style={{ color: S.text }}>
+<div className="fixed rounded border shadow-2xl z-[110] overflow-hidden" style={{ backgroundColor: '#1C1C20', borderColor: '#34343A' }}>
+  <button className="block w-full whitespace-nowrap text-left px-3 py-2 text-sm transition hover:bg-[#303038]" style={{ color: S.text }}>
     Export .txt
   </button>
-  <button className="block w-full whitespace-nowrap text-left px-3 py-2 text-sm transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#1A1A1E]" style={{ color: '#FF453A' }}>
+  <button className="block w-full whitespace-nowrap text-left px-3 py-2 text-sm transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#303038]" style={{ color: '#FF453A' }}>
     Delete
   </button>
 </div>
