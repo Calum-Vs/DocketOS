@@ -1130,6 +1130,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   const [selectedSubfolderName, setSelectedSubfolderName] = useState('')
   const [subprojectBrowserSort, setSubprojectBrowserSort] = useState('type-name')
   const [showLayoutsPopover, setShowLayoutsPopover] = useState(false)
+  const [layoutPresets, setLayoutPresets] = useState(() => loadLayoutPresets())
   const [newPresetName, setNewPresetName] = useState('')
   const [selectedFolderSort, setSelectedFolderSort] = useState('type-name')
   const [fileNameColumnWidthBySlot, setFileNameColumnWidthBySlot] = useState({})
@@ -1337,7 +1338,14 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       leftSectionOrder: leftOrder.length === LEFT_PANEL_SECTION_KEYS.length ? leftOrder : DEFAULT_LAYOUT.leftSectionOrder,
       rightSectionHeights: rightHeights,
       rightSectionOrder: rightOrder.length === RIGHT_PANEL_SECTION_KEYS.length ? rightOrder : DEFAULT_LAYOUT.rightSectionOrder,
-      fileNameColumnWidthBySlot: (typeof source.fileNameColumnWidthBySlot === 'object' && source.fileNameColumnWidthBySlot !== null) ? source.fileNameColumnWidthBySlot : {},
+      fileNameColumnWidthBySlot: (() => {
+        const rawSlotWidths = typeof source.fileNameColumnWidthBySlot === 'object' && source.fileNameColumnWidthBySlot !== null
+          ? source.fileNameColumnWidthBySlot
+          : {}
+        return Object.fromEntries(
+          Object.entries(rawSlotWidths).map(([k, v]) => [k, Math.max(110, Math.min(520, Number(v) || DEFAULT_FILE_NAME_COLUMN_WIDTH))])
+        )
+      })(),
     }
   }
 
@@ -1387,7 +1395,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   function saveLayoutPreset(name) {
     const presets = loadLayoutPresets()
     const preset = {
-      id: String(Date.now()),
+      id: crypto.randomUUID(),
       name,
       centerPanelSlots: [...centerPanelSlots],
       centerGridColumnWeights: [...centerGridColumnWeights],
@@ -1398,11 +1406,13 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       savedAt: new Date().toISOString(),
     }
     localStorage.setItem(LAYOUT_PRESETS_STORAGE_KEY, JSON.stringify([...presets, preset]))
+    setLayoutPresets(loadLayoutPresets())
   }
 
   function deleteLayoutPreset(id) {
     const presets = loadLayoutPresets().filter(p => p.id !== id)
     localStorage.setItem(LAYOUT_PRESETS_STORAGE_KEY, JSON.stringify(presets))
+    setLayoutPresets(loadLayoutPresets())
   }
 
   function applyLayoutPreset(preset) {
@@ -1988,6 +1998,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     if (!showLayoutsPopover) return
     function handleClose() {
       setShowLayoutsPopover(false)
+      setNewPresetName('')
     }
     window.addEventListener('mousedown', handleClose)
     return () => window.removeEventListener('mousedown', handleClose)
@@ -4747,7 +4758,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
             ) : (
               <span className="mono text-xs" style={{ color: S.zinc, width: '14px' }}>.</span>
             )}
-            <span className="shrink-0" style={{ fontSize: '12px' }}>{isDir ? 'DIR' : getFileIcon(entry.name)}</span>
+            <span className="shrink-0" style={{ fontSize: '12px' }}>{isDir ? getDirectoryIcon() : getFileIcon(entry.name)}</span>
             <p className="min-w-0 flex-1 text-xs truncate" style={getFileNameColumnTextStyle({ color: '#E4E4E7' }, getSlotFileNameWidth(String(slotIndex)))}>{entry.name}</p>
           </div>
           {isDir && isOpen && (
@@ -4810,11 +4821,15 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
 
   function getFileIcon(name) {
     const ext = (name || '').split('.').pop().toLowerCase()
-    if (ext === 'pdf') return 'PDF'
-    if (ext === 'dwg' || ext === 'dxf') return 'CAD'
-    if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm' || ext === 'xlsb' || ext === 'csv') return 'XLS'
-    if (ext === 'docx' || ext === 'doc' || ext === 'docm' || ext === 'odt' || ext === 'rtf') return 'DOC'
-    return 'FILE'
+    if (ext === 'pdf') return '📕'
+    if (ext === 'dwg' || ext === 'dxf') return '📐'
+    if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm' || ext === 'xlsb' || ext === 'csv') return '📊'
+    if (ext === 'docx' || ext === 'doc' || ext === 'docm' || ext === 'odt' || ext === 'rtf') return '📝'
+    return '📄'
+  }
+
+  function getDirectoryIcon() {
+    return '📁'
   }
 
   function renderFolderEntries(entries, depth = 0, parentPath = selectedSubfolderPath, slotKey = 'default') {
@@ -4882,7 +4897,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
             ) : (
               <span className="mono text-xs" style={{ color: S.zinc, width: '14px' }}>.</span>
             )}
-            <span style={{ fontSize: '12px' }}>{isDir ? 'DIR' : getFileIcon(entry.name)}</span>
+            <span style={{ fontSize: '12px' }}>{isDir ? getDirectoryIcon() : getFileIcon(entry.name)}</span>
             <span className="text-xs truncate" style={getFileNameColumnTextStyle({ color: '#E4E4E7' }, getSlotFileNameWidth(slotKey))}>{entry.name}</span>
             <FileNameColumnHandle slotKey={slotKey} />
             <span className="min-w-0 flex-1" />
@@ -4951,7 +4966,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
             >
               <span className="mono text-xs" style={{ color: S.accent }}>O</span>
               <span className="max-w-[200px] truncate">{activeProject?.name ?? 'Select Project'}</span>
-              <span className="mono text-xs" style={{ color: S.muted }}>v</span>
+              <span className="mono text-xs" style={{ color: S.muted }}>▾</span>
             </button>
             {showDropdown && (
               <div className="absolute top-full left-0 mt-1 w-64 border rounded shadow-2xl z-50" style={S.panel}>
@@ -5009,100 +5024,89 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               >
                 Layouts ▾
               </button>
-              {showLayoutsPopover && (() => {
-                const presets = loadLayoutPresets()
-                return (
-                  <div
-                    className="absolute right-0 top-full mt-1 w-64 rounded border shadow-2xl z-50 overflow-hidden"
-                    style={{ backgroundColor: '#1C1C20', borderColor: S.border }}
-                  >
-                    <div className="px-3 py-2 border-b" style={{ borderColor: S.border }}>
-                      <span className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>
-                        Saved Layouts
-                      </span>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {presets.length === 0 && (
-                        <p className="mono px-3 py-3 text-[10px]" style={{ color: S.dim }}>
-                          No saved layouts
-                        </p>
-                      )}
-                      {presets.map(preset => (
-                        <div
-                          key={preset.id}
-                          className="flex items-center gap-2 px-3 py-2 hover:bg-[#26262C] transition group"
-                        >
-                          <button
-                            className="min-w-0 flex-1 text-left text-xs truncate hover:text-white transition"
-                            style={{ color: S.text }}
-                            title={`Saved ${new Date(preset.savedAt).toLocaleString()}`}
-                            onClick={() => {
-                              applyLayoutPreset(preset)
-                              setShowLayoutsPopover(false)
-                            }}
-                          >
-                            {preset.name}
-                          </button>
-                          <button
-                            className="mono text-[10px] px-1.5 py-0.5 rounded border opacity-0 group-hover:opacity-100 transition hover:text-white"
-                            style={{ ...S.elevated, color: S.zinc, borderColor: S.border }}
-                            title="Load this layout"
-                            onClick={() => {
-                              applyLayoutPreset(preset)
-                              setShowLayoutsPopover(false)
-                            }}
-                          >
-                            Load
-                          </button>
-                          <button
-                            className="mono text-[10px] opacity-0 group-hover:opacity-100 transition hover:text-white"
-                            style={{ color: S.muted }}
-                            title="Delete this preset"
-                            onClick={() => {
-                              deleteLayoutPreset(preset.id)
-                              setShowLayoutsPopover(false)
-                              setShowLayoutsPopover(true)
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t px-3 py-2 flex items-center gap-2" style={{ borderColor: S.border }}>
-                      <input
-                        value={newPresetName}
-                        onChange={event => setNewPresetName(event.target.value)}
-                        onKeyDown={event => {
-                          if (event.key === 'Enter' && newPresetName.trim()) {
-                            saveLayoutPreset(newPresetName.trim())
-                            setNewPresetName('')
+              {showLayoutsPopover && (
+                <div
+                  className="absolute right-0 top-full mt-1 w-64 rounded border shadow-2xl z-50 overflow-hidden"
+                  style={{ backgroundColor: '#1C1C20', borderColor: S.border }}
+                >
+                  <div className="px-3 py-2 border-b" style={{ borderColor: S.border }}>
+                    <span className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>
+                      Saved Layouts
+                    </span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {layoutPresets.length === 0 && (
+                      <p className="mono px-3 py-3 text-[10px]" style={{ color: S.dim }}>
+                        No saved layouts
+                      </p>
+                    )}
+                    {layoutPresets.map(preset => (
+                      <div
+                        key={preset.id}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-[#26262C] transition group"
+                      >
+                        <button
+                          className="min-w-0 flex-1 text-left text-xs truncate hover:text-white transition"
+                          style={{ color: S.text }}
+                          title={`Saved ${new Date(preset.savedAt).toLocaleString()}`}
+                          onClick={() => {
+                            applyLayoutPreset(preset)
                             setShowLayoutsPopover(false)
-                            setShowLayoutsPopover(true)
-                          }
-                        }}
-                        placeholder="Preset name…"
-                        className="flex-1 min-w-0 rounded border text-xs outline-none"
-                        style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '5px 8px' }}
-                      />
-                      <button
-                        disabled={!newPresetName.trim()}
-                        onClick={() => {
-                          if (!newPresetName.trim()) return
+                          }}
+                        >
+                          {preset.name}
+                        </button>
+                        <button
+                          className="mono text-[10px] px-1.5 py-0.5 rounded border opacity-0 group-hover:opacity-100 transition hover:text-white"
+                          style={{ ...S.elevated, color: S.zinc, borderColor: S.border }}
+                          title="Load this layout"
+                          onClick={() => {
+                            applyLayoutPreset(preset)
+                            setShowLayoutsPopover(false)
+                          }}
+                        >
+                          Load
+                        </button>
+                        <button
+                          className="mono text-[10px] opacity-0 group-hover:opacity-100 transition hover:text-white"
+                          style={{ color: S.muted }}
+                          title="Delete this preset"
+                          onClick={() => deleteLayoutPreset(preset.id)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t px-3 py-2 flex items-center gap-2" style={{ borderColor: S.border }}>
+                    <input
+                      value={newPresetName}
+                      onChange={event => setNewPresetName(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' && newPresetName.trim()) {
                           saveLayoutPreset(newPresetName.trim())
                           setNewPresetName('')
-                          setShowLayoutsPopover(false)
-                          setShowLayoutsPopover(true)
-                        }}
-                        className="mono text-[10px] px-2 py-1 rounded border transition disabled:opacity-40 hover:border-[#7A5CFF] hover:text-white"
-                        style={{ ...S.elevated, color: S.zinc }}
-                      >
-                        Save
-                      </button>
-                    </div>
+                        }
+                      }}
+                      placeholder="Preset name…"
+                      className="flex-1 min-w-0 rounded border text-xs outline-none"
+                      style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '5px 8px' }}
+                    />
+                    <button
+                      disabled={!newPresetName.trim()}
+                      onClick={() => {
+                        if (!newPresetName.trim()) return
+                        saveLayoutPreset(newPresetName.trim())
+                        setNewPresetName('')
+                      }}
+                      className="mono text-[10px] px-2 py-1 rounded border transition disabled:opacity-40 hover:border-[#7A5CFF] hover:text-white"
+                      style={{ ...S.elevated, color: S.zinc }}
+                    >
+                      Save
+                    </button>
                   </div>
-                )
-              })()}
+                </div>
+              )}
             </div>
           )}
           {!isBoxPopout && shouldLoadCenterBoxes && (
@@ -5882,7 +5886,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="mono shrink-0" style={{ fontSize: '11px', color: S.zinc }}>::</span>
                               <FileFlagDot flag={getFileFlag(link.path)} />
-                              <span style={{ fontSize: '11px' }}>{link.isDirectory ? 'DIR' : getFileIcon(link.name)}</span>
+                              <span style={{ fontSize: '11px' }}>{link.isDirectory ? getDirectoryIcon() : getFileIcon(link.name)}</span>
                               <p className="text-xs font-medium truncate min-w-0" style={getFileNameColumnTextStyle({ color: '#E4E4E7' }, getSlotFileNameWidth(String(slotIndex)))}>{link.name}</p>
                               <span className="min-w-0 flex-1" />
                               {quickLinkStats[link.path]?.sizeBytes > 0 && (
@@ -6132,7 +6136,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                               >
                                 <div className="flex items-center gap-2">
                                   <FileFlagDot flag={item} />
-                                  <span style={{ fontSize: '12px' }}>{item.isDirectory ? 'DIR' : getFileIcon(item.name)}</span>
+                                  <span style={{ fontSize: '12px' }}>{item.isDirectory ? getDirectoryIcon() : getFileIcon(item.name)}</span>
                                   <p className="text-xs font-medium truncate" style={getFileNameColumnTextStyle({ color: '#E4E4E7' }, getSlotFileNameWidth(String(slotIndex)))}>{item.name}</p>
                                   <FileNameColumnHandle slotKey={String(slotIndex)} />
                                 </div>
@@ -6159,7 +6163,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                             >
                               <div className="flex items-center gap-2">
                                 <FileFlagDot flag={item} />
-                                <span style={{ fontSize: '12px' }}>{item.isDirectory ? 'DIR' : getFileIcon(item.name)}</span>
+                                <span style={{ fontSize: '12px' }}>{item.isDirectory ? getDirectoryIcon() : getFileIcon(item.name)}</span>
                                 <p className="text-xs font-medium truncate" style={getFileNameColumnTextStyle({ color: '#E4E4E7' }, getSlotFileNameWidth(String(slotIndex)))}>{item.name}</p>
                                 <FileNameColumnHandle slotKey={String(slotIndex)} />
                               </div>
@@ -6709,7 +6713,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                         <div className="group flex items-center gap-1.5">
                           <FileFlagDot flag={getFileFlag(activeProject?.root_path && entry.relativePath ? `${activeProject.root_path}\\${entry.relativePath.replace(/\//g, '\\')}` : '')} />
                           {entry.isDirectory !== undefined && (
-                            <span style={{ fontSize: '12px' }}>{entry.isDirectory ? 'DIR' : getFileIcon(entry.name)}</span>
+                            <span style={{ fontSize: '12px' }}>{entry.isDirectory ? getDirectoryIcon() : getFileIcon(entry.name)}</span>
                           )}
                           <p className="text-xs font-medium truncate" style={getFileNameColumnTextStyle({ color: '#E4E4E7' }, getSlotFileNameWidth(String(slotIndex)))}>{entry.name}</p>
                           <FileNameColumnHandle slotKey={String(slotIndex)} />
@@ -7022,7 +7026,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                 <div className="space-y-1">
                   {permanentQuickLinks.map(link => (
                     <div key={link.id} className="flex items-center gap-2 rounded border px-2 py-1.5" style={S.deeper}>
-                      <span className="shrink-0" style={{ fontSize: '12px' }}>{link.type === 'file' ? getFileIcon(link.label) : 'DIR'}</span>
+                      <span className="shrink-0" style={{ fontSize: '12px' }}>{link.type === 'file' ? getFileIcon(link.label) : getDirectoryIcon()}</span>
                       <button
                         type="button"
                         onClick={() => handleOpenPermanentQuickLink(link)}
@@ -7166,7 +7170,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                   <div className={`${quickFilingQueue.length ? 'max-h-24 p-1' : 'hidden'} overflow-y-auto space-y-1 border-t`} style={{ borderColor: S.border }}>
                     {quickFilingQueue.map(item => (
                       <div key={item.path} className="flex items-center gap-2 rounded px-2 py-1.5" style={{ backgroundColor: '#0D0D0F' }}>
-                        <span style={{ fontSize: '12px' }}>{item.isDirectory ? 'DIR' : getFileIcon(item.name)}</span>
+                        <span style={{ fontSize: '12px' }}>{item.isDirectory ? getDirectoryIcon() : getFileIcon(item.name)}</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs truncate" style={{ color: S.text }}>{item.name}</p>
                           <p className="mono break-all" style={{ fontSize: '9px', color: S.dim }}>{item.path}</p>
