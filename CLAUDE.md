@@ -77,7 +77,7 @@ The **main process** (`electron/`) runs in Node and handles all system access. T
 | `electron/fileWatcher.js` | Async `fs.watch({ recursive: true })` on the active project root; 2000ms debounce; emits `kanban:update` and `watcher:update` to renderer. `scanDir` and `indexDocuments` use `fs.promises` with a `statSafe()` helper (500ms per-file timeout) so SharePoint/OneDrive cloud-only files don't block the main process. |
 | `electron/gemini.js` | Calls Gemini 2.5 Flash API. 30s debounce, 20s min interval, exponential backoff on 429, input fingerprinting to skip redundant calls. `isRunning` flag prevents concurrent requests. API key from `GEMINI_API_KEY` env var or settings DB. |
 | `electron/launcher.js` | Spawns configured exes (AutoCAD, 12D, Excel, Word) detached. Validates against `ALLOWED_APP_KEYS` allowlist before hitting the DB. |
-| `electron/main.js` (auto-updater) | `electron-updater` checks GitHub Releases on startup (`app.isPackaged` only). Help → Check for Updates shows up-to-date / update-available / restart dialogs. `manualUpdateCheck` flag keeps the startup check silent. |
+| `electron/main.js` (auto-updater) | `electron-updater` checks GitHub Releases on startup (`app.isPackaged` only). The GitHub repo (`calumplinsell-dot/DocketOS`) is **public**, so installed clients fetch update metadata and installers anonymously — no `GH_TOKEN` or auth is needed on the client. Help → Check for Updates shows up-to-date / update-available / restart dialogs. `manualUpdateCheck` flag keeps the startup check silent. |
 | `electron/filing.js` | Creates date-prefixed outgoing transmittal folders in `outgoing_dir`, optionally copies first `.xlsx` from `templates_dir` (non-fatal if missing), then opens in Explorer. |
 
 ### Kanban folder mapping
@@ -128,7 +128,9 @@ Add-MpPreference -ExclusionPath "C:\Project\DocketOS"
 
 ### Release version
 
-Current: **0.1.2**. Bump `version` in `package.json` before each `npm run publish`.
+Current: **0.1.6**. Bump `version` in `package.json` before each `npm run publish`.
+
+The GitHub repo (`calumplinsell-dot/DocketOS`) is **public**. Auto-update therefore works for installed clients without any credentials — `electron-updater` reads `latest.yml` and the installer straight from the public GitHub Release. Publishing still requires a `GH_TOKEN` with write access on the machine running `npm run publish`.
 
 ### Git layout
 

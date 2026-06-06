@@ -4,7 +4,7 @@ A Windows desktop app for managing engineering project files with AI-assisted or
 
 Built with Electron 28, React 18, and Vite 5.
 
-> **Version 0.1.5** — This is the standalone DocketOS repository, fully separated from the Roamlee project. It contains only DocketOS source and history.
+> **Version 0.1.6** — This is the standalone DocketOS repository, fully separated from the Roamlee project. It contains only DocketOS source and history.
 
 ## Features
 
@@ -46,3 +46,7 @@ npm run build
 | Database | SQLite (userData directory) |
 
 See [CLAUDE.md](CLAUDE.md) for codebase guidance.
+
+## Updates
+
+The GitHub repository is **public**, so installed clients receive automatic updates with no authentication. On startup (and via Help → Check for Updates), `electron-updater` reads the latest GitHub Release and downloads the new installer. Release the update with `npm run publish` after bumping the `version` in `package.json`.
