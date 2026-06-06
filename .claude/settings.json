@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(C:\\\\Users\\\\Calum\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\skills\\\\brainstorming\\\\scripts\\\\start-server.sh --project-dir \"c:/Project/DocketOS\")",
+      "PowerShell(node \"C:\\\\Users\\\\Calum\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\skills\\\\brainstorming\\\\scripts\\\\server.js\" --project-dir \"c:\\\\Project\\\\DocketOS\")",
+      "Bash(git -C \"c:/Project\" add \"DocketOS/docs/superpowers/specs/2026-05-30-document-ai-analysis-design.md\")",
+      "Bash(git -C c:/Project commit -m ' *)",
+      "Bash(git -C \"c:/Project\" add \"DocketOS/docs/superpowers/plans/2026-05-30-document-ai-analysis.md\")",
+      "Read(//c/Users/Calum/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/requesting-code-review/**)",
+      "Bash(git -C \"c:/Project\" rev-parse HEAD)",
+      "PowerShell(grep -i node)",
+      "PowerShell(Remove-Item -Recurse -Force \"C:\\\\Project\\\\DocketOS\\\\node_modules\" -ErrorAction SilentlyContinue; Write-Host \"Done: $?\")",
+      "PowerShell(ls \"c:\\\\Project\\\\DocketOS\\\\node_modules\" | Where-Object { $_.Name -eq \"mammoth\" })",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); print\\('electron:', p.get\\('devDependencies',{}\\).get\\('electron'\\) or p.get\\('dependencies',{}\\).get\\('electron'\\)\\); print\\('better-sqlite3:', p.get\\('dependencies',{}\\).get\\('better-sqlite3'\\)\\)\")"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/scripts/check-ipc-symmetry.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

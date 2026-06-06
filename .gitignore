@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+release1/
+.vite/
+*.log
+.superpowers/
+graphify-out/
