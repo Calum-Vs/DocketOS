@@ -5372,8 +5372,8 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
             </div>}
             <div
               ref={centerGridRef}
-              className="relative flex-1 min-h-0 overflow-auto"
-              style={{ minHeight: isBoxPopout ? '100%' : shouldLoadCenterBoxes ? getCenterPanelCompactHeight(centerPanelRenderCount) : 220 }}
+              className="relative flex-1 min-h-0 overflow-hidden rounded border"
+              style={{ minHeight: isBoxPopout ? '100%' : shouldLoadCenterBoxes ? getCenterPanelCompactHeight(centerPanelRenderCount) : 220, borderColor: S.border }}
             >
               {!shouldLoadCenterBoxes ? (
                 <div className="absolute inset-2 grid place-items-center rounded border" style={{ ...S.deeper, borderColor: S.border }}>
