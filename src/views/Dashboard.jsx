@@ -5466,7 +5466,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                     setDraggingCenterPanelIndex(null)
                   }}
                 >
-                  {!isBoxPopout && <div className="p-3 border-b flex items-center gap-2" style={{ ...S.panel, borderColor: S.border }}>
+                  {!isBoxPopout && <div className="px-2.5 py-2 border-b flex items-center gap-2" style={{ borderColor: '#2A2A30' }}>
                     <span
                       draggable={!isBoxPopout}
                       onDragStart={event => {
@@ -5477,8 +5477,8 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                         setDraggingCenterPanelIndex(renderIndex)
                       }}
                       onDragEnd={() => setDraggingCenterPanelIndex(null)}
-                      className={`mono grid h-6 w-5 shrink-0 place-items-center rounded border ${isBoxPopout ? '' : 'cursor-grab active:cursor-grabbing'}`}
-                      style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.zinc }}
+                      className={`mono grid h-6 w-5 shrink-0 place-items-center rounded ${isBoxPopout ? '' : 'cursor-grab active:cursor-grabbing'}`}
+                      style={{ color: S.dim }}
                       title={isBoxPopout ? 'Popped out box' : 'Drag to move this box'}
                     >
                       {isBoxPopout ? '[]' : '::'}
@@ -5496,12 +5496,12 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                         <option key={option.key} value={option.key}>{option.label}</option>
                       ))}
                     </select>
-                    <span className="mono text-xs px-2 py-0.5 rounded shrink-0" style={{ backgroundColor: '#26262C', color: S.labeltext }}>{total}</span>
+                    <span className="mono text-xs shrink-0" style={{ color: S.dim }}>{total}</span>
                     {!isBoxPopout && (
                       <button
                         onClick={() => openCenterPanelBoxWindow(key, slotIndex)}
-                        className="mono text-[10px] px-1.5 py-0.5 rounded border hover:text-white transition shrink-0"
-                        style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.zinc }}
+                        className="mono text-[10px] px-1.5 py-0.5 rounded hover:text-white transition shrink-0"
+                        style={{ color: S.dim }}
                         title={`Open ${panelOption.label} in a separate window`}
                       >
                         Pop Out
@@ -5510,8 +5510,8 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                     {!isBoxPopout && centerPanelSlots.length > 1 && (
                       <button
                         onClick={() => removeCenterPanelBox(slotIndex)}
-                        className="mono text-[10px] px-1.5 py-0.5 rounded border hover:text-white transition shrink-0"
-                        style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.zinc }}
+                        className="mono text-[10px] px-1.5 py-0.5 rounded hover:text-white transition shrink-0"
+                        style={{ color: S.dim }}
                         title={`Remove box ${slotIndex + 1}`}
                       >
                         Remove
