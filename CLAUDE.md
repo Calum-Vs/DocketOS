@@ -128,7 +128,7 @@ Add-MpPreference -ExclusionPath "C:\Project\DocketOS"
 
 ### Release version
 
-Current: **0.1.6**. Bump `version` in `package.json` before each `npm run publish`.
+Current: **0.1.9**. Bump `version` in `package.json` before each `npm run publish`.
 
 The GitHub repo (`calumplinsell-dot/DocketOS`) is **public**. Auto-update therefore works for installed clients without any credentials — `electron-updater` reads `latest.yml` and the installer straight from the public GitHub Release. Publishing still requires a `GH_TOKEN` with write access on the machine running `npm run publish`.
 

@@ -1067,6 +1067,77 @@ async function listSubprojectsForProject(project, listFolders) {
   }
 }
 
+function NotesRichEditor({ initialHtml, onChange, placeholder, disabled }) {
+  const ref = useRef(null)
+  const [empty, setEmpty] = useState(() => !initialHtml?.trim())
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.innerHTML = initialHtml ?? ''
+      setEmpty(!ref.current.textContent.trim())
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // mount-only — parent remounts via key when note section changes
+
+  function applyFormat(cmd) {
+    ref.current?.focus()
+    document.execCommand(cmd, false, null)
+  }
+
+  function handleInput(e) {
+    const html = e.currentTarget.innerHTML
+    setEmpty(!e.currentTarget.textContent.trim())
+    onChange(html)
+  }
+
+  return (
+    <div
+      className="w-full flex-1 min-h-[120px] flex flex-col rounded border overflow-hidden"
+      style={{ backgroundColor: '#1C1C20', borderColor: S.border }}
+    >
+      <div
+        className="shrink-0 flex items-center gap-0.5 px-2 py-1 border-b"
+        style={{ borderColor: S.border, backgroundColor: '#26262C' }}
+      >
+        {[
+          { cmd: 'bold',      label: 'B', title: 'Bold',      style: { fontWeight: 700 } },
+          { cmd: 'italic',    label: 'I', title: 'Italic',    style: { fontStyle: 'italic' } },
+          { cmd: 'underline', label: 'U', title: 'Underline', style: { textDecoration: 'underline' } },
+        ].map(({ cmd, label, title, style }) => (
+          <button
+            key={cmd}
+            title={title}
+            disabled={disabled}
+            onMouseDown={e => { e.preventDefault(); applyFormat(cmd) }}
+            className="w-6 h-6 flex items-center justify-center rounded text-xs transition-colors disabled:opacity-40 hover:bg-[#303038]"
+            style={{ color: S.labeltext, ...style }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="relative flex-1">
+        {empty && (
+          <span
+            className="absolute top-0 left-0 pointer-events-none text-xs leading-relaxed select-none"
+            style={{ color: S.dim, padding: '10px 12px' }}
+          >
+            {placeholder}
+          </span>
+        )}
+        <div
+          ref={ref}
+          contentEditable={!disabled}
+          suppressContentEditableWarning
+          onInput={handleInput}
+          className="w-full h-full min-h-[88px] text-xs leading-relaxed outline-none overflow-y-auto"
+          style={{ color: disabled ? `${S.text}66` : S.text, padding: '10px 12px' }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutSlotIndex = 0, initialProjectId = null }) {
   const normalizedPopoutSlotIndex = Math.max(0, Number(popoutSlotIndex) || 0)
   const isBoxPopout = isValidCenterPanelKey(popoutBoxKey)
@@ -4211,7 +4282,9 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   async function handleNoteContextExport() {
     if (!noteContextMenu) return
     const label = noteContextMenu.label ?? DEFAULT_NOTE_SECTION.name
-    const contents = `${label}\n\n${String(noteContextMenu.text ?? '').trimEnd()}\n`
+    const temp = document.createElement('div')
+    temp.innerHTML = noteContextMenu.text ?? ''
+    const contents = `${label}\n\n${(temp.textContent ?? '').trimEnd()}\n`
     setNoteContextMenu(null)
     await exportTextFile({
       defaultFileName: sanitizeExportFileName(label),
@@ -5383,15 +5456,15 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
 
             {/* Active Subproject */}
             <section
-              className="flex flex-col shrink-0 overflow-hidden rounded border p-3"
-              style={getPanelSectionStyle({ ...S.deeper, height: `${leftSectionHeights.active}px`, order: (leftSectionOrderByKey.active ?? 0) * 2, display: sidePanelHiddenSet.has('active') ? 'none' : undefined }, draggingLeftSectionKey === 'active', leftDropTargetKey === 'active' && draggingLeftSectionKey !== 'active', landedLeftSectionKey === 'active')}
+              className="flex flex-col shrink-0 overflow-hidden border-b px-2 py-1.5"
+              style={getPanelSectionStyle({ backgroundColor: 'transparent', borderColor: S.border, height: `${leftSectionHeights.active}px`, order: (leftSectionOrderByKey.active ?? 0) * 2, display: sidePanelHiddenSet.has('active') ? 'none' : undefined }, draggingLeftSectionKey === 'active', leftDropTargetKey === 'active' && draggingLeftSectionKey !== 'active', landedLeftSectionKey === 'active')}
               onDragOver={event => handleSectionDragOver(event, draggingLeftSectionKey, 'active', setLeftSectionOrder, setDraggingLeftSectionKey, setLeftDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingLeftSectionKey, setDraggingLeftSectionKey, setLeftDropTargetKey, setLandedLeftSectionKey) }}
               onDragLeave={() => { if (leftDropTargetKey === 'active') setLeftDropTargetKey(null) }}
             >
               <div style={getDropIndicatorStyle(leftDropTargetKey === 'active' && draggingLeftSectionKey !== 'active')} />
-              <div className="shrink-0 flex items-center justify-between gap-2 mb-2">
-                <h3 className="type-panel-title" style={{ color: S.muted }}>Active Subproject</h3>
+              <div className="shrink-0 flex items-center justify-between gap-2 mb-1.5">
+                <p className="mono text-xs uppercase tracking-widest" style={{ color: S.muted }}>Active Subproject</p>
                 <div className="flex items-center gap-2">
                   {activeProject && (
                     <button
@@ -5423,19 +5496,20 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                   </span>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {activeProject && (
                   <button
                     onClick={handleActivateProjectOverview}
-                    className="w-full text-left px-2 py-2 rounded border transition"
+                    className="group w-full text-left rounded border px-2 py-1 transition-colors"
                     style={projectOverviewSelected
-                      ? { backgroundColor: '#26262C', borderColor: S.accent, color: S.text }
-                      : { backgroundColor: '#101013', borderColor: S.border, color: S.text }
+                      ? { ...S.elevated, borderColor: S.accent, color: S.text }
+                      : { ...S.deeper, color: S.text }
                     }
+                    title={activeProject.root_path}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 flex items-center gap-2">
-                        <span className="text-sm break-words">Project overview</span>
+                      <span className="min-w-0 flex items-center gap-2 overflow-hidden">
+                        <span className="text-sm truncate">Project overview</span>
                       </span>
                       <span className="mono text-[10px]" style={{ color: projectOverviewSelected ? S.accent : S.zinc }}>
                         {projectOverviewSelected ? 'Active' : 'Use'}
@@ -5444,9 +5518,9 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                     <p className="mono mt-1 truncate" style={{ fontSize: '10px', color: S.zinc }}>{activeProject.root_path}</p>
                   </button>
                 )}
-                <div className="mt-3 flex-1 min-h-0 border-t pt-3" style={{ borderColor: S.border }}>
-                  <p className="mono mb-2" style={{ fontSize: '10px', color: S.muted }}>Subprojects in this project</p>
-                  <div className="space-y-1 h-full min-h-0 overflow-y-auto pr-1">
+                <div className="mt-2 flex-1 min-h-0 border-t pt-2" style={{ borderColor: S.border }}>
+                  <p className="mono mb-1.5 text-xs uppercase tracking-widest" style={{ color: S.muted }}>Subprojects in this project</p>
+                  <div className="space-y-1 h-full min-h-0 overflow-y-auto">
                     {subprojects.length === 0 && (
                       <div className="space-y-2">
                         <p className="mono text-xs" style={{ color: S.dim }}>No subprojects yet. Click Refresh or select the Technical folder.</p>
@@ -5468,15 +5542,16 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                         <button
                           key={subproject.id}
                           onClick={() => handleActivateSubproject(subproject)}
-                          className="w-full text-left px-2 py-2 rounded border transition"
+                          className="group w-full text-left rounded border px-2 py-1 transition-colors"
                           style={isCurrent
-                            ? { backgroundColor: '#26262C', borderColor: S.accent, color: S.text }
-                            : { backgroundColor: '#101013', borderColor: S.border, color: S.text }
+                            ? { ...S.elevated, borderColor: S.accent, color: S.text }
+                            : { ...S.deeper, color: S.text }
                           }
+                          title={subproject.subproject_path}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="min-w-0 flex items-center gap-2">
-                              <span className="text-sm break-words">{subproject.display_name}</span>
+                            <span className="min-w-0 flex items-center gap-2 overflow-hidden">
+                              <span className="text-sm truncate">{subproject.display_name}</span>
                             </span>
                             <span className="mono text-[10px]" style={{ color: isCurrent ? S.accent : S.zinc }}>
                               {isCurrent ? 'Active' : 'Use'}
@@ -6227,14 +6302,12 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                             Add
                           </button>
                         </div>
-                        <textarea
-                          value={plainNotesText}
-                          onChange={event => updatePlainNotesBox(slotIndex, event.target.value)}
+                        <NotesRichEditor
+                          key={`${noteScopeKey}-${activeNote?.id}`}
+                          initialHtml={plainNotesText}
+                          onChange={html => updatePlainNotesBox(slotIndex, html)}
                           placeholder={`Write ${activeNote?.name ?? 'project'} notes here...`}
                           disabled={!activeProject}
-                          className="w-full flex-1 min-h-[120px] resize-none rounded border text-xs outline-none leading-relaxed disabled:opacity-40"
-                          style={{ backgroundColor: '#1C1C20', borderColor: S.border, color: S.text, padding: '10px 12px' }}
-                          spellCheck="true"
                         />
                       </div>
                     )}

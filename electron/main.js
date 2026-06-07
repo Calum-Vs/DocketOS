@@ -446,6 +446,7 @@ function deleteProjectById(projectId) {
 function buildAppMenu() {
   const VIEW_HIDDEN_EXTS_KEY = 'view_hidden_extensions'
   const HIDDEN_EXT_PRESETS = ['.bak', '.dwl', '.dwl2', '.tmp']
+  const appVersion = app.getVersion()
 
   function getHiddenExtensions() {
     try {
@@ -569,6 +570,10 @@ function buildAppMenu() {
               dialog.showErrorBox('Update check failed', err.message ?? String(err))
             })
           },
+        },
+        {
+          label: `Current Version: v${appVersion}`,
+          enabled: false,
         },
         { type: 'separator' },
         {

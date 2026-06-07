@@ -4,7 +4,7 @@ A Windows desktop app for managing engineering project files with AI-assisted or
 
 Built with Electron 28, React 18, and Vite 5.
 
-> **Version 0.1.6** — This is the standalone DocketOS repository, fully separated from the Roamlee project. It contains only DocketOS source and history.
+> **Version 0.1.9** — This is the standalone DocketOS repository, fully separated from the Roamlee project. It contains only DocketOS source and history.
 
 ## Features
 
