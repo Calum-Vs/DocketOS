@@ -27,7 +27,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "calumplinsell-dot",
+      "owner": "Calum-Vs",
       "repo": "DocketOS"
     },
     "win": {

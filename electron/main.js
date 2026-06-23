@@ -1654,7 +1654,7 @@ app.setName(APP_NAME)
 // Do NOT add a token or `private: true` here — a client token in a public repo is a leak.
 autoUpdater.setFeedURL({
   provider: 'github',
-  owner: 'calumplinsell-dot',
+  owner: 'Calum-Vs',
   repo: 'DocketOS',
 })
 
