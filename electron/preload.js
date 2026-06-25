@@ -107,6 +107,7 @@ const api = {
   viewGetHiddenExtensions: () => ipcRenderer.invoke('view:getHiddenExtensions'),
   // Dashboard windows
   dashboardOpenBoxWindow: (data) => ipcRenderer.invoke('dashboard:openBoxWindow', data),
+  timesheetOpenPopout: () => ipcRenderer.invoke('timesheet:openPopout'),
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Dashboard from './views/Dashboard.jsx'
 import Settings from './views/Settings.jsx'
 import DocumentControlWindow from './views/DocumentControlWindow.jsx'
+import TimesheetPopout from './views/TimesheetPopout.jsx'
 
 export default function App() {
   const params = new URLSearchParams(window.location.search)
@@ -13,6 +14,7 @@ export default function App() {
   }, [])
 
   if (windowMode === 'document-control') return <DocumentControlWindow />
+  if (windowMode === 'timesheet-popout') return <TimesheetPopout />
   if (windowMode === 'dashboard-box') {
     return (
       <Dashboard

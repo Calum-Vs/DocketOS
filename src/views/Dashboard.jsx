@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import CreateProjectModal from '../components/CreateProjectModal.jsx'
 import FolderTree from '../components/FolderTree.jsx'
+import { FileTypeIcon, FolderGlyph } from '../components/fileIcons.jsx'
 import NoteCanvas from '../components/NoteCanvas.jsx'
-import CommandPalette from '../components/CommandPalette.jsx'
 
 const PHASES = [
   { key: 'masterplan', label: 'Masterplan' },
@@ -154,7 +154,11 @@ const TIMELINE_BURST_MIN_ITEMS = 4
 const SIDE_PANEL_RESIZER_WIDTH = 10
 const DEFAULT_FILE_NAME_COLUMN_WIDTH = 190
 const LAYOUT_PRESETS_STORAGE_KEY = 'docketos:layout-presets'
-const LEFT_PANEL_SECTION_KEYS = ['launchers', 'folders', 'active']
+const LAYOUT_TABS_STORAGE_KEY = 'docketos:layout-tabs'
+const ACTIVE_LAYOUT_TAB_STORAGE_KEY = 'docketos:active-layout-tab'
+const DEFAULT_LAYOUT_TAB_COUNT = 4
+const MIN_SECTION_HEIGHTS = { launchers: 80, folders: 80 }
+const LEFT_PANEL_SECTION_KEYS = ['launchers', 'folders']
 const RIGHT_PANEL_SECTION_KEYS = ['template', 'permanentLinks', 'filing', 'gemini', 'calendar']
 const HIDEABLE_SIDE_PANEL_SECTION_KEYS = new Set(['launchers', 'folders', ...RIGHT_PANEL_SECTION_KEYS])
 
@@ -599,58 +603,102 @@ function loadStoredPlainNotesByBox() {
   }
 }
 
-function loadStoredTimesheetEntriesByProject() {
+function loadStoredTimesheetEntries() {
   try {
-    const raw = window.localStorage.getItem('docketos.timesheetEntriesByProject')
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return {}
-    return Object.fromEntries(
-      Object.entries(parsed).map(([projectId, entries]) => [
-        projectId,
-        Array.isArray(entries)
-          ? entries
-            .filter(entry => entry && typeof entry === 'object')
-            .map(entry => ({
-              id: String(entry.id ?? crypto.randomUUID()),
-              date: String(entry.date ?? ''),
-              task: String(entry.task ?? '').trim(),
-              hours: Math.max(0, Number(entry.hours ?? 0)),
-              note: String(entry.note ?? '').trim(),
-              startTime: entry.startTime ? String(entry.startTime) : '',
-              endTime: entry.endTime ? String(entry.endTime) : '',
+    const rawNew = window.localStorage.getItem('docketos.timesheetEntries')
+    if (rawNew) {
+      const parsed = JSON.parse(rawNew)
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter(e => e && typeof e === 'object')
+          .map(e => ({
+            id: String(e.id ?? crypto.randomUUID()),
+            date: String(e.date ?? ''),
+            projectId: e.projectId ?? null,
+            projectName: String(e.projectName ?? ''),
+            task: String(e.task ?? '').trim(),
+            hours: Math.max(0, Number(e.hours ?? 0)),
+            note: String(e.note ?? '').trim(),
+            startTime: e.startTime ? String(e.startTime) : '',
+            endTime: e.endTime ? String(e.endTime) : '',
+          }))
+          .filter(e => e.task || e.hours > 0)
+      }
+    }
+    const rawOld = window.localStorage.getItem('docketos.timesheetEntriesByProject')
+    if (!rawOld) return []
+    const parsed = JSON.parse(rawOld)
+    if (!parsed || typeof parsed !== 'object') return []
+    return Object.entries(parsed).flatMap(([projectId, entries]) =>
+      Array.isArray(entries)
+        ? entries
+            .filter(e => e && typeof e === 'object')
+            .map(e => ({
+              id: String(e.id ?? crypto.randomUUID()),
+              date: String(e.date ?? ''),
+              projectId: Number(projectId) || null,
+              projectName: '',
+              task: String(e.task ?? '').trim(),
+              hours: Math.max(0, Number(e.hours ?? 0)),
+              note: String(e.note ?? '').trim(),
+              startTime: e.startTime ? String(e.startTime) : '',
+              endTime: e.endTime ? String(e.endTime) : '',
             }))
-            .filter(entry => entry.task || entry.hours > 0)
-          : [],
-      ])
+            .filter(e => e.task || e.hours > 0)
+        : []
     )
   } catch {
-    return {}
+    return []
   }
 }
 
-function loadStoredTimesheetTimersByProject() {
+function loadStoredTimesheetTimer() {
   try {
-    const raw = window.localStorage.getItem('docketos.timesheetTimersByProject')
+    const rawNew = window.localStorage.getItem('docketos.timesheetTimer')
+    if (rawNew) {
+      const parsed = JSON.parse(rawNew)
+      if (parsed && typeof parsed === 'object' && parsed.task && parsed.startedAt) {
+        return {
+          date: String(parsed.date ?? formatCalendarDateKey(new Date())),
+          projectId: parsed.projectId ?? null,
+          projectName: String(parsed.projectName ?? ''),
+          task: String(parsed.task).trim(),
+          note: String(parsed.note ?? '').trim(),
+          startedAt: String(parsed.startedAt),
+        }
+      }
+      return null
+    }
+    const rawOld = window.localStorage.getItem('docketos.timesheetTimersByProject')
+    if (!rawOld) return null
+    const parsed = JSON.parse(rawOld)
+    if (!parsed || typeof parsed !== 'object') return null
+    for (const [projectId, timer] of Object.entries(parsed)) {
+      if (!timer || typeof timer !== 'object') continue
+      const task = String(timer.task ?? '').trim()
+      const startedAt = String(timer.startedAt ?? '')
+      if (!task || Number.isNaN(new Date(startedAt).getTime())) continue
+      return {
+        date: String(timer.date ?? formatCalendarDateKey(new Date())),
+        projectId: Number(projectId) || null,
+        projectName: '',
+        task,
+        note: String(timer.note ?? '').trim(),
+        startedAt,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function loadStoredProjectLastOpened() {
+  try {
+    const raw = window.localStorage.getItem('docketos.projectLastOpened')
     if (!raw) return {}
     const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return {}
-    return Object.fromEntries(
-      Object.entries(parsed)
-        .map(([projectId, timer]) => {
-          if (!timer || typeof timer !== 'object') return null
-          const task = String(timer.task ?? '').trim()
-          const startedAt = String(timer.startedAt ?? '')
-          if (!task || Number.isNaN(new Date(startedAt).getTime())) return null
-          return [projectId, {
-            task,
-            note: String(timer.note ?? '').trim(),
-            date: String(timer.date ?? formatCalendarDateKey(new Date())),
-            startedAt,
-          }]
-        })
-        .filter(Boolean)
-    )
+    return parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
     return {}
   }
@@ -1144,10 +1192,16 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   const dragState = useRef(null)
   const centerGridResizeFrameRef = useRef(null)
   const pendingCenterGridPointerRef = useRef(null)
+  const sectionElRefs = useRef({})
+  const leftPanelBodyRef = useRef(null)
+  const rightPanelBodyRef = useRef(null)
   const centerGridRef = useRef(null)
   const layoutReadyProjectIdRef = useRef(null)
   const [projects,        setProjects]       = useState([])
   const [activeProject,   setActiveProject]  = useState(null)
+  const [showHome,        setShowHome]       = useState(true)
+  const [homeProjectQuery, setHomeProjectQuery] = useState('')
+  const [projectLastOpenedById, setProjectLastOpenedById] = useState(loadStoredProjectLastOpened)
   const [activeSubproject,setActiveSubproject] = useState(null)
   const [projectOverviewSelected, setProjectOverviewSelected] = useState(false)
   const [showDropdown,    setShowDropdown]   = useState(false)
@@ -1156,7 +1210,6 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   const [editProjectForm, setEditProjectForm] = useState({ name: '', description: '', root_path: '' })
   const [editProjectLoading, setEditProjectLoading] = useState(false)
   const [editProjectError, setEditProjectError] = useState(null)
-  const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showDeleteProject, setShowDeleteProject] = useState(false)
   const [projectToDeleteId, setProjectToDeleteId] = useState(null)
   const [deleteProjectError, setDeleteProjectError] = useState(null)
@@ -1203,6 +1256,9 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   const [showLayoutsPopover, setShowLayoutsPopover] = useState(false)
   const [layoutPresets, setLayoutPresets] = useState(() => loadLayoutPresets())
   const [newPresetName, setNewPresetName] = useState('')
+  const [layoutTabs, setLayoutTabs] = useState(() => loadLayoutTabs())
+  const [activeLayoutTabId, setActiveLayoutTabId] = useState(() => loadActiveLayoutTabId())
+  const [layoutTabMenu, setLayoutTabMenu] = useState(null)
   const [selectedFolderSort, setSelectedFolderSort] = useState('type-name')
   const [fileNameColumnWidthBySlot, setFileNameColumnWidthBySlot] = useState({})
   const [hiddenExtensions, setHiddenExtensions] = useState([])
@@ -1287,12 +1343,18 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   const [landedTodoItemKey, setLandedTodoItemKey] = useState(null)
   const [todoContextMenu, setTodoContextMenu] = useState(null)
   const [noteContextMenu, setNoteContextMenu] = useState(null)
+  const [subprojectContextMenu, setSubprojectContextMenu] = useState(null)
   const draggedTodoMovedRef = useRef(false)
   const landedTodoTimeoutRef = useRef(null)
-  const [timesheetEntriesByProject, setTimesheetEntriesByProject] = useState(loadStoredTimesheetEntriesByProject)
-  const [timesheetDraftByProject, setTimesheetDraftByProject] = useState({})
-  const [timesheetTimersByProject, setTimesheetTimersByProject] = useState(loadStoredTimesheetTimersByProject)
+  const [timesheetEntries, setTimesheetEntries] = useState(loadStoredTimesheetEntries)
+  const [timesheetDraft, setTimesheetDraft] = useState({ date: formatCalendarDateKey(new Date()), projectId: null, projectName: '', task: '', hours: '', note: '' })
+  const [timesheetTimer, setTimesheetTimer] = useState(loadStoredTimesheetTimer)
   const [timesheetNowMs, setTimesheetNowMs] = useState(() => Date.now())
+  const [timesheetDrawerOpen, setTimesheetDrawerOpen] = useState(false)
+  const [timesheetFilterProject, setTimesheetFilterProject] = useState('all')
+  const [timesheetFilterRange, setTimesheetFilterRange] = useState('week')
+  const [timesheetEditingEntryId, setTimesheetEditingEntryId] = useState(null)
+  const [timesheetEditDraft, setTimesheetEditDraft] = useState(null)
   const [fileFlagsByProject, setFileFlagsByProject] = useState(loadStoredFileFlagsByProject)
   const [flaggedColorBySlot, setFlaggedColorBySlot] = useState({})
   const [flaggedSortBySlot, setFlaggedSortBySlot] = useState({})
@@ -1308,6 +1370,9 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   const [rightWidth, setRightWidth] = useState(288)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
+  const [projectInfoCollapsed, setProjectInfoCollapsed] = useState(false)
+  const [treeCollapseSignal, setTreeCollapseSignal] = useState(0)
+  const [treeExpandSignal, setTreeExpandSignal] = useState(0)
   const [centerTopCollapsed, setCenterTopCollapsed] = useState(false)
   const [centerCanvasCollapsed, setCenterCanvasCollapsed] = useState(false)
   const previousFileSnapshotRef = useRef(new Map())
@@ -1507,6 +1572,79 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     }
   }
 
+  // --- Layout tabs (header tab strip) --------------------------------------
+  // Each tab stores a snapshot of the centre boxes + canvas grid (same shape as a
+  // layout preset). Clicking a tab applies its layout; right-click saves/deletes.
+  function makeDefaultLayoutTabs() {
+    return Array.from({ length: DEFAULT_LAYOUT_TAB_COUNT }, (_, index) => ({
+      id: crypto.randomUUID(),
+      name: String(index + 1),
+      layout: null,
+    }))
+  }
+
+  function loadLayoutTabs() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LAYOUT_TABS_STORAGE_KEY) ?? 'null')
+      if (Array.isArray(raw) && raw.length) {
+        return raw
+          .filter(tab => tab && typeof tab === 'object' && tab.id)
+          .map(tab => ({ id: String(tab.id), name: String(tab.name ?? ''), layout: tab.layout ?? null }))
+      }
+    } catch {
+      // fall through to defaults
+    }
+    return makeDefaultLayoutTabs()
+  }
+
+  function loadActiveLayoutTabId() {
+    try {
+      return localStorage.getItem(ACTIVE_LAYOUT_TAB_STORAGE_KEY) || null
+    } catch {
+      return null
+    }
+  }
+
+  function captureCurrentLayout() {
+    return {
+      centerPanelSlots: [...centerPanelSlots],
+      centerGridColumnWeights: [...centerGridColumnWeights],
+      centerGridRowWeights: [...centerGridRowWeights],
+      centerGridColumnRowWeights: { ...centerGridColumnRowWeights },
+      centerKanbanHeight,
+      fileNameColumnWidthBySlot: { ...fileNameColumnWidthBySlot },
+    }
+  }
+
+  function selectLayoutTab(tab) {
+    setLayoutTabMenu(null)
+    setActiveLayoutTabId(tab.id)
+    if (tab.layout) applyLayoutPreset(tab.layout)
+  }
+
+  function saveLayoutToTab(id) {
+    const snapshot = captureCurrentLayout()
+    setLayoutTabs(prev => prev.map(tab => tab.id === id ? { ...tab, layout: snapshot } : tab))
+    setActiveLayoutTabId(id)
+    setLayoutTabMenu(null)
+  }
+
+  function deleteLayoutTab(id) {
+    setLayoutTabs(prev => {
+      const next = prev.filter(tab => tab.id !== id)
+      return next.length ? next : makeDefaultLayoutTabs()
+    })
+    setActiveLayoutTabId(prev => (prev === id ? null : prev))
+    setLayoutTabMenu(null)
+  }
+
+  function addLayoutTab() {
+    setLayoutTabMenu(null)
+    const tab = { id: crypto.randomUUID(), name: String(layoutTabs.length + 1), layout: captureCurrentLayout() }
+    setLayoutTabs(prev => [...prev, tab])
+    setActiveLayoutTabId(tab.id)
+  }
+
   function resetViewerLayout() {
     const project = activeProjectRef.current ?? activeProject
     const next = normalizeLayout(DEFAULT_LAYOUT)
@@ -1543,14 +1681,11 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   useEffect(() => {
     window.api.projectsList().then(async list => {
       setProjects(list)
-      if (list.length > 0) {
-        const activeFromMain = await window.api.projectsGetActive()
-        const preferredProject = list.find(project => String(project.id) === String(initialProjectId))
-          ?? list.find(project => project.id === activeFromMain?.id)
-          ?? list[0]
+      // A popout box window must open its project directly; the main window lands on
+      // the Home hub and lets the user pick a project from there.
+      if (isBoxPopout && list.length > 0) {
+        const preferredProject = list.find(project => String(project.id) === String(initialProjectId)) ?? list[0]
         activateProject(preferredProject)
-      } else {
-        setShowNewProject(true)
       }
     })
     window.api.templatesList().then(setTemplates)
@@ -1831,23 +1966,33 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   }, [plainNotesByBox])
 
   useEffect(() => {
-    window.localStorage.setItem('docketos.timesheetEntriesByProject', JSON.stringify(timesheetEntriesByProject))
-  }, [timesheetEntriesByProject])
+    window.localStorage.setItem('docketos.timesheetEntries', JSON.stringify(timesheetEntries))
+  }, [timesheetEntries])
 
   useEffect(() => {
-    window.localStorage.setItem('docketos.timesheetTimersByProject', JSON.stringify(timesheetTimersByProject))
-  }, [timesheetTimersByProject])
+    window.localStorage.setItem('docketos.timesheetTimer', JSON.stringify(timesheetTimer))
+  }, [timesheetTimer])
+
+  useEffect(() => {
+    try { window.localStorage.setItem('docketos.projectLastOpened', JSON.stringify(projectLastOpenedById)) } catch { /* ignore */ }
+  }, [projectLastOpenedById])
 
   useEffect(() => {
     window.localStorage.setItem('docketos.fileFlagsByProject', JSON.stringify(fileFlagsByProject))
   }, [fileFlagsByProject])
 
   useEffect(() => {
-    const hasRunningTimer = Object.values(timesheetTimersByProject).some(timer => timer?.startedAt)
-    if (!hasRunningTimer) return undefined
+    if (!timesheetTimer?.startedAt) return undefined
     const timer = window.setInterval(() => setTimesheetNowMs(Date.now()), 1000)
     return () => window.clearInterval(timer)
-  }, [timesheetTimersByProject])
+  }, [timesheetTimer])
+
+  // Listen for popout window requesting the drawer to open
+  useEffect(() => {
+    const bc = new BroadcastChannel('docketos.timesheet')
+    bc.onmessage = (e) => { if (e.data?.type === 'open-drawer') setTimesheetDrawerOpen(true) }
+    return () => bc.close()
+  }, [])
 
   useEffect(() => {
     window.localStorage.setItem('docketos.projectActivityByProject', JSON.stringify(projectActivityByProject))
@@ -1870,7 +2015,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       subprojectId: activeSubproject?.id ?? null,
       subprojectLabel: activeSubproject?.display_name ?? null,
     } : null
-  }, [activeProject?.id, activeProject?.name, activeProject?.root_path, activeSubproject?.id, activeSubproject?.display_name, todosByScope, todoListsByScope, activeTodoListBySlot, todoViewModeBySlot, noteSectionsByScope, activeNoteByScope, plainNotesByBox, calendarNotes, timesheetEntriesByProject, timesheetTimersByProject, fileFlagsByProject, projectInfoByProject, quickLinksByProject, permanentQuickLinks, projectActivityByProject, projectTimelineClearedAtByProject])
+  }, [activeProject?.id, activeProject?.name, activeProject?.root_path, activeSubproject?.id, activeSubproject?.display_name, todosByScope, todoListsByScope, activeTodoListBySlot, todoViewModeBySlot, noteSectionsByScope, activeNoteByScope, plainNotesByBox, calendarNotes, timesheetEntries, timesheetTimer, fileFlagsByProject, projectInfoByProject, quickLinksByProject, permanentQuickLinks, projectActivityByProject, projectTimelineClearedAtByProject])
 
   useEffect(() => {
     if (!window.api?.backupCreateRecoverySnapshot) return undefined
@@ -1918,10 +2063,10 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
             if (val && typeof val === 'object') sync(setActiveNoteByScope); break
           case 'docketos.plainNotesByBox':
             if (val && typeof val === 'object') sync(setPlainNotesByBox); break
-          case 'docketos.timesheetEntriesByProject':
-            if (val && typeof val === 'object') sync(setTimesheetEntriesByProject); break
-          case 'docketos.timesheetTimersByProject':
-            if (val && typeof val === 'object') sync(setTimesheetTimersByProject); break
+          case 'docketos.timesheetEntries':
+            if (Array.isArray(val)) sync(setTimesheetEntries); break
+          case 'docketos.timesheetTimer':
+            sync(setTimesheetTimer); break
           case 'docketos.fileFlagsByProject':
             if (val && typeof val === 'object') sync(setFileFlagsByProject); break
           case 'docketos.projectActivityByProject':
@@ -2066,6 +2211,27 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   }, [activeProject, activeSubproject])
 
   useEffect(() => {
+    try { localStorage.setItem(LAYOUT_TABS_STORAGE_KEY, JSON.stringify(layoutTabs)) } catch { /* ignore */ }
+  }, [layoutTabs])
+
+  useEffect(() => {
+    try {
+      if (activeLayoutTabId) localStorage.setItem(ACTIVE_LAYOUT_TAB_STORAGE_KEY, activeLayoutTabId)
+    } catch { /* ignore */ }
+  }, [activeLayoutTabId])
+
+  useEffect(() => {
+    if (!layoutTabMenu) return
+    const close = () => setLayoutTabMenu(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('blur', close)
+    }
+  }, [layoutTabMenu])
+
+  useEffect(() => {
     if (!showLayoutsPopover) return
     function handleClose() {
       setShowLayoutsPopover(false)
@@ -2101,6 +2267,13 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     window.addEventListener('mousedown', handleCloseMenu)
     return () => window.removeEventListener('mousedown', handleCloseMenu)
   }, [noteContextMenu])
+
+  useEffect(() => {
+    if (!subprojectContextMenu) return
+    function handleCloseMenu() { setSubprojectContextMenu(null) }
+    window.addEventListener('mousedown', handleCloseMenu)
+    return () => window.removeEventListener('mousedown', handleCloseMenu)
+  }, [subprojectContextMenu])
 
   useEffect(() => {
     const applyCenterGridMove = pointer => {
@@ -2172,22 +2345,22 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       }
 
       if (dragState.current.type === 'left-panel-vertical') {
-        const { upperKey, startY, startUpperHeight } = dragState.current
+        const { upperKey, startY, startUpperHeight, minUpper } = dragState.current
         const delta = event.clientY - startY
-        const nextUpper = Math.max(80, startUpperHeight + delta)
+        const nextUpper = Math.max(minUpper ?? 80, startUpperHeight + delta)
         setLeftSectionHeights(prev => ({ ...prev, [upperKey]: nextUpper }))
       }
 
       if (dragState.current.type === 'right-panel-vertical') {
-        const { upperKey, startY, startUpperHeight } = dragState.current
+        const { upperKey, startY, startUpperHeight, minUpper } = dragState.current
         const delta = event.clientY - startY
-        const nextUpper = Math.max(80, startUpperHeight + delta)
+        const nextUpper = Math.max(minUpper ?? 80, startUpperHeight + delta)
         setRightSectionHeights(prev => ({ ...prev, [upperKey]: nextUpper }))
       }
 
       if (dragState.current.type === 'left-panel-footer') {
-        const { startY, startHeight, sectionKey } = dragState.current
-        const min = 180
+        const { startY, startHeight, sectionKey, minFooter } = dragState.current
+        const min = minFooter ?? 180
         const max = Math.max(min, window.innerHeight - 380)
         const nextHeight = Math.max(min, Math.min(startHeight + (event.clientY - startY), max))
         setLeftSectionHeights(prev => ({ ...prev, [sectionKey]: nextHeight }))
@@ -2235,16 +2408,6 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     }
   }, [])
 
-  useEffect(() => {
-    function handleCommandPaletteKey(event) {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setShowCommandPalette(true)
-      }
-    }
-    window.addEventListener('keydown', handleCommandPaletteKey)
-    return () => window.removeEventListener('keydown', handleCommandPaletteKey)
-  }, [])
 
   function beginResizeLeft(event) {
     event.preventDefault()
@@ -2335,8 +2498,38 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     })
   }
 
+  // Measure a section card's full natural content height (header + fixed controls +
+  // the un-clipped height of any scroll body), independent of its current fixed height.
+  // Each child contributes its scrollHeight, so an internally-scrolling body reports its
+  // full content rather than the height it has been squeezed into.
+  function measureSectionNaturalHeight(key) {
+    const el = sectionElRefs.current[key]
+    if (!el) return MIN_SECTION_HEIGHTS[key] ?? 80
+    const cs = window.getComputedStyle(el)
+    let total =
+      (parseFloat(cs.paddingTop) || 0) +
+      (parseFloat(cs.paddingBottom) || 0) +
+      (parseFloat(cs.borderTopWidth) || 0) +
+      (parseFloat(cs.borderBottomWidth) || 0)
+    for (const child of el.children) {
+      const ccs = window.getComputedStyle(child)
+      if (ccs.position === 'absolute' || ccs.display === 'none') continue
+      total += child.scrollHeight + (parseFloat(ccs.marginTop) || 0) + (parseFloat(ccs.marginBottom) || 0)
+    }
+    return total
+  }
+
+  // The resize floor: a card's full content height, capped so it can never demand more
+  // than the visible panel can give (leaving room for at least one neighbouring header).
+  function panelResizeFloor(key, bodyEl) {
+    const natural = measureSectionNaturalHeight(key)
+    const cap = bodyEl ? Math.max(80, bodyEl.clientHeight - 120) : Infinity
+    return Math.max(60, Math.min(natural, cap))
+  }
+
   function beginVerticalResize(type, upperKey, lowerKey, event, heights, setHeights) {
     event.preventDefault()
+    const bodyEl = type === 'right-panel-vertical' ? rightPanelBodyRef.current : leftPanelBodyRef.current
     dragState.current = {
       type,
       upperKey,
@@ -2344,6 +2537,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       startY: event.clientY,
       startUpperHeight: heights[upperKey],
       startLowerHeight: heights[lowerKey],
+      minUpper: panelResizeFloor(upperKey, bodyEl),
     }
     document.body.style.cursor = 'row-resize'
     document.body.style.userSelect = 'none'
@@ -2370,6 +2564,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       sectionKey,
       startY: event.clientY,
       startHeight: leftSectionHeights[sectionKey],
+      minFooter: panelResizeFloor(sectionKey, leftPanelBodyRef.current),
     }
     document.body.style.cursor = 'row-resize'
     document.body.style.userSelect = 'none'
@@ -2493,6 +2688,8 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     applyLayout(layout)
     layoutReadyProjectIdRef.current = project.id
     setActiveProject(project)
+    setShowHome(false)
+    if (project?.id != null) setProjectLastOpenedById(prev => ({ ...prev, [project.id]: Date.now() }))
     setSelectedTreeFolderPath(null)
     setProjectPhaseKey(project.current_phase ?? 'masterplan')
     setActiveSubproject(null)
@@ -2960,7 +3157,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       projectInfo: activeProjectInfo,
       calendarNotes,
       timelineItems,
-      timesheetEntries,
+      timesheetEntries: timesheetActiveProjectEntries,
       projectTasks: buildReportProjectTasks(),
       noteSectionsByScope: Object.fromEntries(Object.entries(noteSectionsByScope).filter(([k]) => k.startsWith(projectPrefix))),
       plainNotesByBox: Object.fromEntries(Object.entries(plainNotesByBox).filter(([k]) => k.startsWith(projectPrefix))),
@@ -3089,15 +3286,34 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     && selectedTreeFolderParentPath.toLowerCase().startsWith(activeProject.root_path.toLowerCase())
     && selectedTreeFolderParentPath !== selectedTreeFolderPath
   )
-  const timesheetProjectKey = activeProject?.id ?? null
-  const timesheetEntries = timesheetProjectKey ? (timesheetEntriesByProject[timesheetProjectKey] ?? []) : []
-  const timesheetDraft = timesheetProjectKey
-    ? (timesheetDraftByProject[timesheetProjectKey] ?? { date: formatCalendarDateKey(new Date()), task: '', hours: '', note: '' })
-    : { date: formatCalendarDateKey(new Date()), task: '', hours: '', note: '' }
-  const timesheetTimer = timesheetProjectKey ? (timesheetTimersByProject[timesheetProjectKey] ?? null) : null
   const timesheetTimerElapsedMs = timesheetTimer ? getTimesheetElapsedMs(timesheetTimer, timesheetNowMs) : 0
-  const timesheetTotalHours = timesheetEntries.reduce((sum, entry) => sum + Number(entry.hours ?? 0), 0)
-  const timesheetGroups = groupTimesheetEntriesByDay(timesheetEntries)
+  const timesheetActiveProjectEntries = activeProject?.id
+    ? timesheetEntries.filter(e => String(e.projectId) === String(activeProject.id))
+    : []
+  const timesheetTotalHours = timesheetActiveProjectEntries.reduce((sum, e) => sum + Number(e.hours ?? 0), 0)
+  const timesheetGroups = groupTimesheetEntriesByDay(timesheetActiveProjectEntries)
+  function getTimesheetWeekStart() {
+    const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - d.getDay()); return d
+  }
+  function getTimesheetMonthStart() {
+    const d = new Date(); d.setHours(0,0,0,0); d.setDate(1); return d
+  }
+  const timesheetDrawerEntries = (() => {
+    let entries = timesheetEntries
+    if (timesheetFilterProject !== 'all') {
+      entries = entries.filter(e => String(e.projectId) === String(timesheetFilterProject))
+    }
+    if (timesheetFilterRange === 'week') {
+      const cutoff = getTimesheetWeekStart()
+      entries = entries.filter(e => e.date && new Date(e.date) >= cutoff)
+    } else if (timesheetFilterRange === 'month') {
+      const cutoff = getTimesheetMonthStart()
+      entries = entries.filter(e => e.date && new Date(e.date) >= cutoff)
+    }
+    return [...entries].sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0))
+  })()
+  const timesheetDrawerTotalHours = timesheetDrawerEntries.reduce((sum, e) => sum + Number(e.hours ?? 0), 0)
+  const timesheetDrawerGroups = groupTimesheetEntriesByDay(timesheetDrawerEntries)
   const dashboardKanban = subprojectKanban ?? kanban
   const dashboardFiles = ['todo', 'inProgress', 'done', 'unclassified']
     .flatMap(bucket => (dashboardKanban[bucket] ?? []).map(entry => ({ ...entry, _bucket: bucket })))
@@ -3704,67 +3920,55 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   }
 
   function updateTimesheetDraft(field, value) {
-    if (!timesheetProjectKey) return
-    setTimesheetDraftByProject(prev => ({
-      ...prev,
-      [timesheetProjectKey]: {
-        ...(prev[timesheetProjectKey] ?? { date: formatCalendarDateKey(new Date()), task: '', hours: '', note: '' }),
-        [field]: value,
-      },
-    }))
+    setTimesheetDraft(prev => ({ ...prev, [field]: value }))
   }
 
   function addTimesheetEntry() {
-    if (!timesheetProjectKey) return
     const task = String(timesheetDraft.task ?? '').trim()
     const hours = Number(timesheetDraft.hours)
     if (!task || !Number.isFinite(hours) || hours <= 0) return
+    const projectId = timesheetDraft.projectId ?? activeProject?.id ?? null
+    const projectName = timesheetDraft.projectName || activeProject?.name || ''
     const entry = {
       id: crypto.randomUUID(),
       date: timesheetDraft.date || formatCalendarDateKey(new Date()),
+      projectId,
+      projectName,
       task,
       hours: Math.round(hours * 100) / 100,
       note: String(timesheetDraft.note ?? '').trim(),
     }
-    setTimesheetEntriesByProject(prev => ({
-      ...prev,
-      [timesheetProjectKey]: [entry, ...(prev[timesheetProjectKey] ?? [])],
-    }))
-    setTimesheetDraftByProject(prev => ({
-      ...prev,
-      [timesheetProjectKey]: { date: entry.date, task: '', hours: '', note: '' },
-    }))
-    appendProjectActivityItems({
-      kind: 'event',
-      changeType: 'timesheet',
-      title: 'Timesheet entry added',
-      detail: `${entry.date} | ${entry.task} | ${entry.hours}h`,
-      meta: { date: entry.date, task: entry.task, hours: `${entry.hours}h` },
-    })
+    setTimesheetEntries(prev => [entry, ...prev])
+    setTimesheetDraft(prev => ({ ...prev, task: '', hours: '', note: '' }))
+    appendProjectActivityItems({ kind: 'event', changeType: 'timesheet', title: 'Timesheet entry added', detail: `${task} | ${hours}h` })
   }
 
   function startTimesheetTimer() {
-    if (!timesheetProjectKey || timesheetTimer) return
+    if (timesheetTimer) return
     const task = String(timesheetDraft.task ?? '').trim()
     if (!task) return
     const timer = {
       date: timesheetDraft.date || formatCalendarDateKey(new Date()),
+      projectId: timesheetDraft.projectId ?? activeProject?.id ?? null,
+      projectName: timesheetDraft.projectName || activeProject?.name || '',
       task,
       note: String(timesheetDraft.note ?? '').trim(),
       startedAt: new Date().toISOString(),
     }
-    setTimesheetTimersByProject(prev => ({ ...prev, [timesheetProjectKey]: timer }))
+    setTimesheetTimer(timer)
     setTimesheetNowMs(Date.now())
   }
 
   function endTimesheetTimer() {
-    if (!timesheetProjectKey || !timesheetTimer) return
+    if (!timesheetTimer) return
     const endedAt = new Date()
     const elapsedMs = getTimesheetElapsedMs(timesheetTimer, endedAt.getTime())
     const hours = Math.max(0.01, Math.round((elapsedMs / 3600000) * 100) / 100)
     const entry = {
       id: crypto.randomUUID(),
       date: timesheetTimer.date || formatCalendarDateKey(endedAt),
+      projectId: timesheetTimer.projectId,
+      projectName: timesheetTimer.projectName,
       task: String(timesheetTimer.task ?? '').trim(),
       hours,
       note: String(timesheetTimer.note ?? '').trim(),
@@ -3772,65 +3976,27 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       endTime: endedAt.toISOString(),
     }
     if (!entry.task) return
-    setTimesheetEntriesByProject(prev => ({
-      ...prev,
-      [timesheetProjectKey]: [entry, ...(prev[timesheetProjectKey] ?? [])],
-    }))
-    setTimesheetTimersByProject(prev => {
-      const next = { ...prev }
-      delete next[timesheetProjectKey]
-      return next
-    })
-    setTimesheetDraftByProject(prev => ({
-      ...prev,
-      [timesheetProjectKey]: { date: entry.date, task: '', hours: '', note: '' },
-    }))
-    appendProjectActivityItems({
-      kind: 'event',
-      changeType: 'timesheet',
-      title: 'Timesheet timer recorded',
-      detail: `${entry.date} | ${entry.task} | ${entry.hours}h`,
-      meta: { date: entry.date, task: entry.task, hours: `${entry.hours}h` },
-    })
+    setTimesheetEntries(prev => [entry, ...prev])
+    setTimesheetTimer(null)
+    setTimesheetDraft(prev => ({ ...prev, task: '', hours: '', note: '' }))
+    appendProjectActivityItems({ kind: 'event', changeType: 'timesheet', title: 'Timesheet timer recorded', detail: `${entry.task} | ${hours}h` })
   }
 
   function cancelTimesheetTimer() {
-    if (!timesheetProjectKey || !timesheetTimer) return
-    setTimesheetTimersByProject(prev => {
-      const next = { ...prev }
-      delete next[timesheetProjectKey]
-      return next
-    })
+    if (!timesheetTimer) return
+    setTimesheetTimer(null)
   }
 
   function removeTimesheetEntry(entryId) {
-    if (!timesheetProjectKey) return
-    const removed = (timesheetEntriesByProject[timesheetProjectKey] ?? []).find(entry => entry.id === entryId)
-    setTimesheetEntriesByProject(prev => ({
-      ...prev,
-      [timesheetProjectKey]: (prev[timesheetProjectKey] ?? []).filter(entry => entry.id !== entryId),
-    }))
-    appendProjectActivityItems({
-      kind: 'event',
-      changeType: 'timesheet',
-      title: 'Timesheet entry removed',
-      detail: removed ? `${removed.date} | ${removed.task}` : entryId,
-    })
+    setTimesheetEntries(prev => prev.filter(e => e.id !== entryId))
+    appendProjectActivityItems({ kind: 'event', changeType: 'timesheet', title: 'Timesheet entry removed' })
   }
 
   function updateTimesheetEntry(entryId, field, value) {
-    if (!timesheetProjectKey) return
-    const current = (timesheetEntriesByProject[timesheetProjectKey] ?? []).find(entry => entry.id === entryId)
-    setTimesheetEntriesByProject(prev => ({
-      ...prev,
-      [timesheetProjectKey]: (prev[timesheetProjectKey] ?? []).map(entry => {
-        if (entry.id !== entryId) return entry
-        if (field === 'hours') {
-          const hours = Number(value)
-          return { ...entry, hours: Number.isFinite(hours) ? Math.max(0, Math.round(hours * 100) / 100) : 0 }
-        }
-        return { ...entry, [field]: value }
-      }),
+    const current = timesheetEntries.find(e => e.id === entryId)
+    setTimesheetEntries(prev => prev.map(e => {
+      if (e.id !== entryId) return e
+      return { ...e, [field]: field === 'hours' ? Math.max(0, Number(value)) : String(value) }
     }))
     appendProjectActivityItems({
       kind: 'event',
@@ -4325,6 +4491,8 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   }
 
   function removeCenterPanelBox(slotIndex) {
+    if (centerPanelSlots.length <= 1) return
+    applySlotIndexRemap(remapIndexForRemove(slotIndex))
     setCenterPanelSlots(prev => prev.length <= 1 ? prev : prev.filter((_, index) => index !== slotIndex))
   }
 
@@ -4463,10 +4631,64 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     document.body.style.userSelect = 'none'
   }
 
+  // Center-panel content (plain notes, per-slot todo/flagged settings) is keyed by the
+  // slot's array index. When slots are reordered or removed the index of a panel changes,
+  // so we must migrate every slot-indexed store through the same permutation — otherwise
+  // a moved panel reads a stale key and its content appears to vanish. `remap` maps an old
+  // slot index to its new index, or returns null to drop that slot's content.
+  function applySlotIndexRemap(remap) {
+    const remapNumericKeyed = prev => {
+      const next = {}
+      for (const [k, v] of Object.entries(prev)) {
+        const oldIndex = Number(k)
+        if (!Number.isInteger(oldIndex)) { next[k] = v; continue }
+        const newIndex = remap(oldIndex)
+        if (newIndex === null || newIndex === undefined) continue
+        next[newIndex] = v
+      }
+      return next
+    }
+    const remapSlotSuffixKeyed = prev => {
+      const next = {}
+      for (const [k, v] of Object.entries(prev)) {
+        const match = /^(.*:slot:)(\d+)$/.exec(k)
+        if (!match) { next[k] = v; continue }
+        const newIndex = remap(Number(match[2]))
+        if (newIndex === null || newIndex === undefined) continue
+        next[`${match[1]}${newIndex}`] = v
+      }
+      return next
+    }
+    setPlainNotesByBox(remapSlotSuffixKeyed)
+    setTodoViewModeBySlot(remapSlotSuffixKeyed)
+    setTodoDoneHiddenBySlot(remapSlotSuffixKeyed)
+    setActiveTodoListBySlot(remapSlotSuffixKeyed)
+    setFlaggedColorBySlot(remapNumericKeyed)
+    setFlaggedSortBySlot(remapNumericKeyed)
+    setFlaggedShowAllBySlot(remapNumericKeyed)
+  }
+
+  function remapIndexForMove(fromIndex, toIndex) {
+    return oldIndex => {
+      if (oldIndex === fromIndex) return toIndex
+      if (fromIndex < toIndex && oldIndex > fromIndex && oldIndex <= toIndex) return oldIndex - 1
+      if (fromIndex > toIndex && oldIndex >= toIndex && oldIndex < fromIndex) return oldIndex + 1
+      return oldIndex
+    }
+  }
+
+  function remapIndexForRemove(removedIndex) {
+    return oldIndex => {
+      if (oldIndex === removedIndex) return null
+      return oldIndex > removedIndex ? oldIndex - 1 : oldIndex
+    }
+  }
+
   function moveCenterPanelBox(fromIndex, toIndex) {
     if (fromIndex === null || fromIndex === toIndex) return
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= centerPanelSlots.length || toIndex >= centerPanelSlots.length) return
+    applySlotIndexRemap(remapIndexForMove(fromIndex, toIndex))
     setCenterPanelSlots(prev => {
-      if (fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) return prev
       const next = [...prev]
       const [moved] = next.splice(fromIndex, 1)
       next.splice(toIndex, 0, moved)
@@ -4893,16 +5115,11 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
   }
 
   function getFileIcon(name) {
-    const ext = (name || '').split('.').pop().toLowerCase()
-    if (ext === 'pdf') return '📕'
-    if (ext === 'dwg' || ext === 'dxf') return '📐'
-    if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm' || ext === 'xlsb' || ext === 'csv') return '📊'
-    if (ext === 'docx' || ext === 'doc' || ext === 'docm' || ext === 'odt' || ext === 'rtf') return '📝'
-    return '📄'
+    return <FileTypeIcon name={name} className="h-4 w-4 shrink-0" />
   }
 
   function getDirectoryIcon() {
-    return '📁'
+    return <FolderGlyph className="h-4 w-4 shrink-0" />
   }
 
   function renderFolderEntries(entries, depth = 0, parentPath = selectedSubfolderPath, slotKey = 'default') {
@@ -5023,6 +5240,184 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
     .filter(event => event.date && event.note?.trim() && startOfDay(event.date) >= todayKeyDate)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
 
+  // --- Home hub data --------------------------------------------------------
+  const homeWeekStart = getTimesheetWeekStart()
+  const homeWeekEntries = timesheetEntries.filter(entry => entry.date && new Date(entry.date) >= homeWeekStart)
+  const homeWeekTotalHours = homeWeekEntries.reduce((sum, entry) => sum + Number(entry.hours ?? 0), 0)
+  const homeHoursByProject = {}
+  for (const entry of homeWeekEntries) {
+    const key = String(entry.projectId)
+    homeHoursByProject[key] = (homeHoursByProject[key] ?? 0) + Number(entry.hours ?? 0)
+  }
+  const homeTodayKey = formatCalendarDateKey(new Date())
+  const homeWeekDays = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(homeWeekStart)
+    day.setDate(homeWeekStart.getDate() + index)
+    const key = formatCalendarDateKey(day)
+    return {
+      key,
+      label: day.toLocaleDateString(undefined, { weekday: 'narrow' }),
+      hours: homeWeekEntries.filter(entry => entry.date === key).reduce((sum, entry) => sum + Number(entry.hours ?? 0), 0),
+      isToday: key === homeTodayKey,
+    }
+  })
+  const homeMaxDayHours = Math.max(1, ...homeWeekDays.map(day => day.hours))
+  const homeRecentEntries = [...timesheetEntries]
+    .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0))
+    .slice(0, 5)
+  const homeProjectsSorted = [...projects]
+    .sort((a, b) => (projectLastOpenedById[b.id] ?? 0) - (projectLastOpenedById[a.id] ?? 0))
+  const homeContinue = homeProjectsSorted.slice(0, 2)
+  const homeProjectInfoFor = project => normalizeProjectInfo(projectInfoByProject[project.id] ?? DEFAULT_PROJECT_INFO)
+  const homeQuery = homeProjectQuery.trim().toLowerCase()
+  const homeFilteredProjects = homeProjectsSorted.filter(project => {
+    if (!homeQuery) return true
+    const info = homeProjectInfoFor(project)
+    return `${project.name} ${info.jobNumber ?? ''}`.toLowerCase().includes(homeQuery)
+  })
+  const homeHour = new Date().getHours()
+  const homeGreeting = homeHour < 12 ? 'Good morning' : homeHour < 18 ? 'Good afternoon' : 'Good evening'
+  const formatHomeHours = value => `${Math.round((value ?? 0) * 10) / 10}h`
+
+  if (showHome && !isBoxPopout) {
+    return (
+      <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#000000', color: S.text }}>
+        {/* Top bar */}
+        <header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b" style={{ ...S.panel, backgroundColor: '#0C0C0E' }}>
+          <div className="flex items-center gap-2 font-semibold text-sm tracking-wide">
+            <span className="h-4 w-4 rounded" style={{ background: 'linear-gradient(135deg,#7A5CFF,#64D2FF)' }} />
+            DocketOS
+          </div>
+          <div className="flex-1" />
+          <button onClick={onOpenSettings} className="mono text-[11px] px-3 py-1.5 rounded border hover:border-[#3A3A40] hover:text-white transition" style={{ ...S.elevated, color: S.zinc }}>Settings</button>
+          <button onClick={() => setShowNewProject(true)} className="text-[11px] font-semibold px-3 py-1.5 rounded border transition hover:bg-accent-hover" style={{ backgroundColor: S.accent, borderColor: S.accent, color: '#fff' }}>+ New Project</button>
+        </header>
+
+        <div className="flex flex-1 min-h-0">
+          {/* Project rail */}
+          <aside className="w-64 shrink-0 border-r flex flex-col" style={{ ...S.panel, backgroundColor: '#0C0C0E' }}>
+            <div className="p-3 border-b" style={{ borderColor: S.border }}>
+              <input
+                value={homeProjectQuery}
+                onChange={event => setHomeProjectQuery(event.target.value)}
+                placeholder="Filter projects…"
+                className="w-full rounded border text-xs outline-none focus:border-accent"
+                style={{ backgroundColor: '#0D0D0F', borderColor: S.border, color: S.text, padding: '6px 10px' }}
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-1.5">
+              {homeFilteredProjects.length === 0 && (
+                <p className="mono px-2 py-3 text-[10px]" style={{ color: S.dim }}>No projects</p>
+              )}
+              {homeFilteredProjects.map(project => {
+                const info = homeProjectInfoFor(project)
+                const hours = homeHoursByProject[String(project.id)]
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => activateProject(project)}
+                    className="group w-full flex items-center gap-2 text-left rounded px-2 py-2 transition-colors hover:bg-[#16161A]"
+                    style={{ color: S.labeltext }}
+                    title={project.name}
+                  >
+                    <span className="mono text-[10px] shrink-0 w-14 truncate" style={{ color: '#64D2FF' }}>{info.jobNumber || '—'}</span>
+                    <span className="text-xs truncate flex-1">{project.name}</span>
+                    {hours > 0 && <span className="mono text-[10px] shrink-0" style={{ color: S.zinc }}>{formatHomeHours(hours)}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </aside>
+
+          {/* Workspace */}
+          <main className="flex-1 min-w-0 overflow-y-auto px-7 py-6">
+            <p className="text-xl font-semibold">{homeGreeting}</p>
+            <p className="mono text-xs mt-1 mb-5" style={{ color: S.muted }}>
+              {projects.length} project{projects.length === 1 ? '' : 's'} · {formatHomeHours(homeWeekTotalHours)} logged this week
+            </p>
+
+            {/* Running timer */}
+            {timesheetTimer && (
+              <div className="flex items-center gap-3 rounded-lg border px-4 py-3 mb-4" style={{ borderColor: 'rgba(122,92,255,0.4)', backgroundColor: '#1B1830' }}>
+                <span className="h-2.5 w-2.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: S.accent }} />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">{timesheetTimer.task}</p>
+                  <p className="mono text-[10px]" style={{ color: S.muted }}>{timesheetTimer.projectName || 'No project'} · running</p>
+                </div>
+                <span className="mono text-xl font-bold ml-auto tabular-nums" style={{ color: S.accentSoft }}>{formatTimesheetElapsed(timesheetTimerElapsedMs)}</span>
+                <button onClick={endTimesheetTimer} className="text-[11px] font-semibold px-3 py-1.5 rounded border transition" style={{ backgroundColor: 'rgba(255,69,58,0.14)', borderColor: 'rgba(255,69,58,0.5)', color: '#FF453A' }}>Stop</button>
+              </div>
+            )}
+
+            {/* Continue working */}
+            {homeContinue.length > 0 && (
+              <div className="rounded-lg border p-4 mb-4" style={S.panel}>
+                <p className="mono text-[10px] uppercase tracking-widest mb-3" style={{ color: S.muted }}>Continue working</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {homeContinue.map(project => {
+                    const info = homeProjectInfoFor(project)
+                    const hours = homeHoursByProject[String(project.id)]
+                    return (
+                      <button
+                        key={project.id}
+                        onClick={() => activateProject(project)}
+                        className="text-left rounded-lg border p-3 transition-colors hover:border-[#7A5CFF]"
+                        style={{ ...S.deeper }}
+                      >
+                        <p className="mono text-sm font-bold" style={{ color: '#64D2FF' }}>{info.jobNumber || project.name}</p>
+                        <p className="text-xs font-medium mt-0.5 truncate" style={{ color: S.text }}>{project.name}</p>
+                        <p className="mono text-[10px] mt-1.5" style={{ color: S.muted }}>
+                          {info.clientName || 'No client'}{hours > 0 ? ` · ${formatHomeHours(hours)} this week` : ''}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Week hours + recent entries */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border p-4" style={S.panel}>
+                <p className="mono text-[10px] uppercase tracking-widest mb-3" style={{ color: S.muted }}>This week</p>
+                <div className="flex items-end gap-2" style={{ height: '92px' }}>
+                  {homeWeekDays.map(day => (
+                    <div key={day.key} className="flex-1 flex flex-col items-center gap-1.5" title={`${formatHomeHours(day.hours)}`}>
+                      <div className="w-3/5 rounded-t" style={{ height: `${Math.max(3, (day.hours / homeMaxDayHours) * 70)}px`, background: day.isToday ? 'linear-gradient(180deg,#64D2FF,#2f7da0)' : 'linear-gradient(180deg,#7A5CFF,#4d3aa8)' }} />
+                      <span className="mono text-[9px]" style={{ color: day.isToday ? '#64D2FF' : S.zinc }}>{day.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg border p-4" style={S.panel}>
+                <p className="mono text-[10px] uppercase tracking-widest mb-2" style={{ color: S.muted }}>Recent entries</p>
+                {homeRecentEntries.length === 0 && (
+                  <p className="mono text-[10px] py-2" style={{ color: S.dim }}>No time logged yet</p>
+                )}
+                {homeRecentEntries.map(entry => (
+                  <div key={entry.id} className="grid items-center gap-2 py-1.5 border-b last:border-b-0" style={{ gridTemplateColumns: '1fr auto', borderColor: '#232328' }}>
+                    <div className="min-w-0">
+                      <span className="text-xs truncate block" style={{ color: S.labeltext }}>{entry.task || 'Untitled'}</span>
+                      <span className="mono text-[9px]" style={{ color: S.zinc }}>{entry.projectName || '—'} · {entry.date}</span>
+                    </div>
+                    <span className="mono text-[11px]" style={{ color: S.text }}>{formatHomeHours(entry.hours)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </main>
+        </div>
+
+        {showNewProject && (
+          <CreateProjectModal
+            onCreated={handleProjectCreated}
+            onClose={() => setShowNewProject(false)}
+          />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#000000', color: S.text }}>
 
@@ -5030,6 +5425,14 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       {!isBoxPopout && (
       <header className="relative h-12 flex items-center justify-between px-3 border-b shrink-0" style={S.panel}>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowHome(true)}
+            className="mono text-xs px-2.5 py-1.5 rounded border hover:border-[#3A3A40] hover:text-white transition"
+            style={{ ...S.elevated, color: S.zinc }}
+            title="Back to home / project hub"
+          >
+            ⌂ Home
+          </button>
           {/* Project selector */}
           <div className="relative">
             <button
@@ -5088,98 +5491,36 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
 
         <div className="flex items-center gap-2">
           {!isBoxPopout && shouldLoadCenterBoxes && (
-            <div className="relative" onMouseDown={event => event.stopPropagation()}>
+            <div className="flex items-center gap-1" onMouseDown={event => event.stopPropagation()}>
+              {layoutTabs.map(tab => {
+                const isActive = tab.id === activeLayoutTabId
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => selectLayoutTab(tab)}
+                    onContextMenu={event => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      setLayoutTabMenu({ x: event.clientX, y: event.clientY, id: tab.id })
+                    }}
+                    className="mono text-[10px] px-2.5 py-1.5 rounded border transition hover:text-white"
+                    style={isActive
+                      ? { backgroundColor: 'rgba(122,92,255,0.18)', borderColor: S.accent, color: S.text }
+                      : { ...S.elevated, color: tab.layout ? S.zinc : S.dim }}
+                    title={`${tab.name} — click to apply · right-click to save or delete`}
+                  >
+                    {tab.name}
+                  </button>
+                )
+              })}
               <button
-                onClick={() => setShowLayoutsPopover(prev => !prev)}
-                className="mono text-[10px] px-2.5 py-1.5 rounded border hover:border-[#3A3A40] hover:text-white transition"
+                onClick={addLayoutTab}
+                className="mono text-[10px] px-2 py-1.5 rounded border hover:border-[#7A5CFF] hover:text-white transition"
                 style={{ ...S.elevated, color: S.zinc }}
-                title="Save or load panel layout presets"
+                title="Add a new layout tab (captures the current layout)"
               >
-                Layouts ▾
+                +
               </button>
-              {showLayoutsPopover && (
-                <div
-                  className="absolute right-0 top-full mt-1 w-64 rounded border shadow-2xl z-50 overflow-hidden"
-                  style={{ backgroundColor: '#1C1C20', borderColor: S.border }}
-                >
-                  <div className="px-3 py-2 border-b" style={{ borderColor: S.border }}>
-                    <span className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>
-                      Saved Layouts
-                    </span>
-                  </div>
-                  <div className="max-h-48 overflow-y-auto">
-                    {layoutPresets.length === 0 && (
-                      <p className="mono px-3 py-3 text-[10px]" style={{ color: S.dim }}>
-                        No saved layouts
-                      </p>
-                    )}
-                    {layoutPresets.map(preset => (
-                      <div
-                        key={preset.id}
-                        className="flex items-center gap-2 px-3 py-2 hover:bg-[#26262C] transition group"
-                      >
-                        <button
-                          className="min-w-0 flex-1 text-left text-xs truncate hover:text-white transition"
-                          style={{ color: S.text }}
-                          title={`Saved ${new Date(preset.savedAt).toLocaleString()}`}
-                          onClick={() => {
-                            applyLayoutPreset(preset)
-                            setShowLayoutsPopover(false)
-                          }}
-                        >
-                          {preset.name}
-                        </button>
-                        <button
-                          className="mono text-[10px] px-1.5 py-0.5 rounded border opacity-0 group-hover:opacity-100 transition hover:text-white"
-                          style={{ ...S.elevated, color: S.zinc, borderColor: S.border }}
-                          title="Load this layout"
-                          onClick={() => {
-                            applyLayoutPreset(preset)
-                            setShowLayoutsPopover(false)
-                          }}
-                        >
-                          Load
-                        </button>
-                        <button
-                          className="mono text-[10px] opacity-0 group-hover:opacity-100 transition hover:text-white"
-                          style={{ color: S.muted }}
-                          title="Delete this preset"
-                          onClick={() => deleteLayoutPreset(preset.id)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t px-3 py-2 flex items-center gap-2" style={{ borderColor: S.border }}>
-                    <input
-                      value={newPresetName}
-                      onChange={event => setNewPresetName(event.target.value)}
-                      onKeyDown={event => {
-                        if (event.key === 'Enter' && newPresetName.trim()) {
-                          saveLayoutPreset(newPresetName.trim())
-                          setNewPresetName('')
-                        }
-                      }}
-                      placeholder="Preset name…"
-                      className="flex-1 min-w-0 rounded border text-xs outline-none"
-                      style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '5px 8px' }}
-                    />
-                    <button
-                      disabled={!newPresetName.trim()}
-                      onClick={() => {
-                        if (!newPresetName.trim()) return
-                        saveLayoutPreset(newPresetName.trim())
-                        setNewPresetName('')
-                      }}
-                      className="mono text-[10px] px-2 py-1 rounded border transition disabled:opacity-40 hover:border-[#7A5CFF] hover:text-white"
-                      style={{ ...S.elevated, color: S.zinc }}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
           {!isBoxPopout && shouldLoadCenterBoxes && (
@@ -5192,19 +5533,31 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               + Add Box
             </button>
           )}
+          {timesheetTimer && (
+            <button
+              onClick={() => setTimesheetDrawerOpen(true)}
+              className="flex items-center gap-1.5 rounded border px-2 py-1 transition hover:border-[#5A4ACC]"
+              style={{ background: '#1D1B2A', borderColor: 'rgba(122,92,255,0.4)' }}
+              title={`Timer running: ${timesheetTimer.task}`}
+            >
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: S.accent }} />
+              <span className="mono truncate text-[10px] max-w-[120px]" style={{ color: S.accentSoft }}>{timesheetTimer.task}</span>
+              <span className="mono text-[10px] font-semibold tabular-nums" style={{ color: S.accent }}>{formatTimesheetElapsed(timesheetTimerElapsedMs)}</span>
+            </button>
+          )}
+          <button
+            onClick={() => setTimesheetDrawerOpen(true)}
+            className="mono text-[10px] px-2.5 py-1.5 rounded border hover:border-[#3A3A40] hover:text-white transition"
+            style={{ ...S.elevated, color: S.zinc }}
+          >
+            Timesheet
+          </button>
           <div className="flex items-center gap-2 border rounded px-2.5 py-1" style={S.deeper}>
             <span className={`w-2 h-2 rounded-full ${geminiKeySet ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`} />
             <span className={`mono text-xs ${geminiKeySet ? 'text-emerald-400' : 'text-zinc-500'}`}>
               {geminiKeySet ? 'Gemini Core Linked' : 'Gemini Not Connected'}
             </span>
           </div>
-          <button
-            onClick={() => setShowCommandPalette(true)}
-            className="border rounded px-3 py-1.5 text-xs font-medium hover:border-[#3A3A40] transition"
-            style={S.elevated}
-          >
-            Ctrl+K
-          </button>
         </div>
       </header>
       )}
@@ -5216,17 +5569,26 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
         <aside className="shrink-0 flex flex-col overflow-hidden border-r" style={{ ...S.panel, width: isBoxPopout || leftCollapsed ? '0px' : `${leftWidth}px`, borderRightWidth: isBoxPopout ? 0 : undefined }}>
           <div className="shrink-0 p-3 pb-2">
 
-            {/* Project Information */}
-            <section className="rounded border px-3 py-2.5" style={S.panel}>
-              <div className="mb-3 flex items-center gap-2">
+            {/* Project Information + Subprojects — one shared frame */}
+            <section className="rounded border" style={S.panel}>
+              <div className="px-3 py-2.5">
+              <div className={`flex items-center gap-2 ${projectInfoCollapsed ? '' : 'mb-3'}`}>
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true" style={{ color: S.muted }}>
                   <ellipse cx="8" cy="3.5" rx="5" ry="2" />
                   <path d="M3 3.5v7c0 1.1 2.2 2 5 2s5-.9 5-2v-7" />
                   <path d="M3 7c0 1.1 2.2 2 5 2s5-.9 5-2" />
                 </svg>
                 <h3 className="type-panel-title" style={{ color: S.muted }}>Project Information</h3>
+                <button
+                  onClick={() => setProjectInfoCollapsed(prev => !prev)}
+                  className="ml-auto mono text-sm leading-none px-1 hover:text-white transition"
+                  style={{ color: S.zinc }}
+                  title={projectInfoCollapsed ? 'Expand project information' : 'Collapse project information'}
+                >
+                  {projectInfoCollapsed ? '▸' : '▾'}
+                </button>
               </div>
-              <div className="flex flex-col gap-2.5">
+              <div className={`flex flex-col gap-2.5 ${projectInfoCollapsed ? 'hidden' : ''}`}>
                 <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
                   <span className="type-field-label" style={{ color: S.muted }}>Project ID</span>
                   <div className="group flex min-w-0 items-center justify-end gap-1">
@@ -5299,18 +5661,77 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                   />
                 </div>
               </div>
+              </div>
+
+            {/* Subprojects — shares the Project Information frame, divider-separated */}
+            {activeProject && (
+              <div className="overflow-hidden border-t" style={{ borderColor: S.border, background: '#0D0D0F' }}>
+                <div className="flex items-center justify-between px-2 py-1 border-b" style={{ borderColor: S.border }}>
+                  <span className="mono text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>Subprojects</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={refreshActiveProjectSubprojects} className="mono text-[10px] hover:text-white transition" style={{ color: S.zinc }}>Refresh</button>
+                    {(activeSubproject || projectOverviewSelected) && (
+                      <button onClick={handleClearActiveSelection} className="mono text-[10px] hover:text-white transition" style={{ color: S.zinc }}>Clear</button>
+                    )}
+                  </div>
+                </div>
+                <div className="p-1.5">
+                  {/* Project overview — pinned 'home' row, distinct from the list */}
+                  <button
+                    onClick={handleActivateProjectOverview}
+                    onContextMenu={event => { event.preventDefault(); setSubprojectContextMenu({ x: event.clientX, y: event.clientY, path: activeProject.root_path }) }}
+                    className="group w-full flex items-center gap-2 text-left rounded border px-2 py-1.5 transition-colors"
+                    style={projectOverviewSelected
+                      ? { backgroundColor: 'rgba(122,92,255,0.18)', borderColor: S.accent, color: S.text }
+                      : { backgroundColor: 'rgba(122,92,255,0.08)', borderColor: 'rgba(122,92,255,0.35)', color: S.text }}
+                    title={activeProject.root_path}
+                  >
+                    <span className="text-[13px] leading-none" style={{ color: S.accent }}>⌂</span>
+                    <span className="text-sm font-medium truncate block">Project overview</span>
+                    {projectOverviewSelected && <span className="ml-auto text-[10px]" style={{ color: S.accent }}>●</span>}
+                  </button>
+
+                  {/* Caption */}
+                  <p className="mono mt-3 mb-1 px-1 text-[10px] uppercase tracking-widest" style={{ color: S.muted }}>Subprojects</p>
+
+                  {/* Subproject list — tight, borderless rows */}
+                  {subprojects.length === 0 ? (
+                    <p className="mono px-2 py-1 text-[10px]" style={{ color: S.dim }}>No subprojects yet. Click Refresh.</p>
+                  ) : subprojects.map(subproject => {
+                    const isCurrent = activeSubproject?.id === subproject.id
+                    const match = /^(\d+)\s+(.*)$/.exec(subproject.display_name)
+                    const code = match ? match[1] : null
+                    const name = match ? match[2] : subproject.display_name
+                    return (
+                      <button
+                        key={subproject.id}
+                        onClick={() => handleActivateSubproject(subproject)}
+                        onContextMenu={event => { event.preventDefault(); setSubprojectContextMenu({ x: event.clientX, y: event.clientY, path: subproject.subproject_path }) }}
+                        className="group w-full flex items-center gap-2 text-left rounded px-2 py-1 transition-colors hover:bg-[#1C1C20]"
+                        style={isCurrent ? { backgroundColor: '#26262C', color: S.text } : { color: S.labeltext }}
+                        title={subproject.subproject_path}
+                      >
+                        {code && <span className="mono text-[10px] shrink-0 tabular-nums" style={{ color: isCurrent ? S.accent : S.zinc }}>{code}</span>}
+                        <span className="text-sm truncate block">{name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             </section>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 flex flex-col">
+          <div ref={leftPanelBodyRef} className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 flex flex-col">
 
             {/* System Launchers */}
             <section
               className="flex flex-col shrink-0 overflow-hidden"
-              style={getPanelSectionStyle({ height: `${leftSectionHeights.launchers}px`, order: (leftSectionOrderByKey.launchers ?? 0) * 2, display: sidePanelHiddenSet.has('launchers') ? 'none' : undefined }, draggingLeftSectionKey === 'launchers', leftDropTargetKey === 'launchers' && draggingLeftSectionKey !== 'launchers', landedLeftSectionKey === 'launchers')}
+              style={getPanelSectionStyle({ height: `${leftSectionHeights.launchers}px`, minHeight: `${MIN_SECTION_HEIGHTS.launchers}px`, order: (leftSectionOrderByKey.launchers ?? 0) * 2, display: sidePanelHiddenSet.has('launchers') ? 'none' : undefined }, draggingLeftSectionKey === 'launchers', leftDropTargetKey === 'launchers' && draggingLeftSectionKey !== 'launchers', landedLeftSectionKey === 'launchers')}
               onDragOver={event => handleSectionDragOver(event, draggingLeftSectionKey, 'launchers', setLeftSectionOrder, setDraggingLeftSectionKey, setLeftDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingLeftSectionKey, setDraggingLeftSectionKey, setLeftDropTargetKey, setLandedLeftSectionKey) }}
               onDragLeave={() => { if (leftDropTargetKey === 'launchers') setLeftDropTargetKey(null) }}
+              ref={el => { sectionElRefs.current.launchers = el }}
             >
               <div style={getDropIndicatorStyle(leftDropTargetKey === 'launchers' && draggingLeftSectionKey !== 'launchers')} />
               <div className="shrink-0 mb-3 flex items-center justify-between gap-2">
@@ -5353,10 +5774,11 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
             {/* Project Folder Tree */}
             <section
               className="flex flex-col shrink-0 overflow-hidden"
-              style={getPanelSectionStyle({ height: `${leftSectionHeights.folders}px`, order: (leftSectionOrderByKey.folders ?? 0) * 2, display: sidePanelHiddenSet.has('folders') ? 'none' : undefined }, draggingLeftSectionKey === 'folders', leftDropTargetKey === 'folders' && draggingLeftSectionKey !== 'folders', landedLeftSectionKey === 'folders')}
+              style={getPanelSectionStyle({ height: `${leftSectionHeights.folders}px`, minHeight: `${MIN_SECTION_HEIGHTS.folders}px`, order: (leftSectionOrderByKey.folders ?? 0) * 2, display: sidePanelHiddenSet.has('folders') ? 'none' : undefined }, draggingLeftSectionKey === 'folders', leftDropTargetKey === 'folders' && draggingLeftSectionKey !== 'folders', landedLeftSectionKey === 'folders')}
               onDragOver={event => handleSectionDragOver(event, draggingLeftSectionKey, 'folders', setLeftSectionOrder, setDraggingLeftSectionKey, setLeftDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingLeftSectionKey, setDraggingLeftSectionKey, setLeftDropTargetKey, setLandedLeftSectionKey) }}
               onDragLeave={() => { if (leftDropTargetKey === 'folders') setLeftDropTargetKey(null) }}
+              ref={el => { sectionElRefs.current.folders = el }}
             >
               <div style={getDropIndicatorStyle(leftDropTargetKey === 'folders' && draggingLeftSectionKey !== 'folders')} />
               <div className="shrink-0 flex items-center justify-between mb-2">
@@ -5371,6 +5793,22 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                       Open Root
                     </button>
                   )}
+                  <button
+                    onClick={() => setTreeExpandSignal(prev => prev + 1)}
+                    className="leading-none hover:text-white transition"
+                    style={{ color: S.zinc, fontSize: '13px' }}
+                    title="Expand all folders"
+                  >
+                    ⊞
+                  </button>
+                  <button
+                    onClick={() => setTreeCollapseSignal(prev => prev + 1)}
+                    className="leading-none hover:text-white transition"
+                    style={{ color: S.zinc, fontSize: '13px' }}
+                    title="Collapse all folders"
+                  >
+                    ⊟
+                  </button>
                   <span
                     draggable
                     onDragStart={event => beginSectionDrag(event, 'folders', setDraggingLeftSectionKey)}
@@ -5428,6 +5866,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <FileFlagDot flag={getFileFlag(result.fullPath)} />
+                          <FileTypeIcon name={result.name} className="h-4 w-4 shrink-0" />
                           <p className="truncate text-xs font-medium" style={getFileNameColumnTextStyle({ color: S.text }, getSlotFileNameWidth(String(slotIndex)))}>{result.name}</p>
                           <FileNameColumnHandle slotKey={String(slotIndex)} />
                         </div>
@@ -5439,10 +5878,13 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                   <FolderTree
                     rootPath={activeProject?.root_path ?? null}
                     onSelectFolder={handleFolderSelect}
+                    onOpenFile={entry => window.api.systemOpenPath({ targetPath: entry.fullPath })}
                     selectedPath={selectedTreeFolderPath}
                     onAddQuickLink={handleAddQuickLink}
                     onQuickFile={handleSendEntryToQuickFiling}
                     revealPath={fileRevealPath}
+                    collapseSignal={treeCollapseSignal}
+                    expandSignal={treeExpandSignal}
                     nameColumnWidth={getSlotFileNameWidth('left-panel')}
                     onBeginNameColumnResize={event => beginFileNameColumnResize(event, 'left-panel')}
                       flagOptions={FILE_FLAG_OPTIONS}
@@ -5454,117 +5896,6 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               </div>
             </section>
 
-            {/* Active Subproject */}
-            <section
-              className="flex flex-col shrink-0 overflow-hidden border-b px-2 py-1.5"
-              style={getPanelSectionStyle({ backgroundColor: 'transparent', borderColor: S.border, height: `${leftSectionHeights.active}px`, order: (leftSectionOrderByKey.active ?? 0) * 2, display: sidePanelHiddenSet.has('active') ? 'none' : undefined }, draggingLeftSectionKey === 'active', leftDropTargetKey === 'active' && draggingLeftSectionKey !== 'active', landedLeftSectionKey === 'active')}
-              onDragOver={event => handleSectionDragOver(event, draggingLeftSectionKey, 'active', setLeftSectionOrder, setDraggingLeftSectionKey, setLeftDropTargetKey)}
-              onDrop={event => { event.preventDefault(); finishSectionDrag(draggingLeftSectionKey, setDraggingLeftSectionKey, setLeftDropTargetKey, setLandedLeftSectionKey) }}
-              onDragLeave={() => { if (leftDropTargetKey === 'active') setLeftDropTargetKey(null) }}
-            >
-              <div style={getDropIndicatorStyle(leftDropTargetKey === 'active' && draggingLeftSectionKey !== 'active')} />
-              <div className="shrink-0 flex items-center justify-between gap-2 mb-1.5">
-                <p className="mono text-xs uppercase tracking-widest" style={{ color: S.muted }}>Active Subproject</p>
-                <div className="flex items-center gap-2">
-                  {activeProject && (
-                    <button
-                      onClick={refreshActiveProjectSubprojects}
-                      className="mono text-[10px] hover:text-white transition"
-                      style={{ color: S.zinc }}
-                    >
-                      Refresh
-                    </button>
-                  )}
-                  {(activeSubproject || projectOverviewSelected) && (
-                  <button
-                    onClick={handleClearActiveSelection}
-                    className="mono text-[10px] hover:text-white transition"
-                    style={{ color: S.zinc }}
-                  >
-                    Clear
-                  </button>
-                  )}
-                  <span
-                    draggable
-                    onDragStart={event => beginSectionDrag(event, 'active', setDraggingLeftSectionKey)}
-                    onDragEnd={() => finishSectionDrag(draggingLeftSectionKey, setDraggingLeftSectionKey, setLeftDropTargetKey, setLandedLeftSectionKey)}
-                    className="mono text-xs cursor-grab active:cursor-grabbing"
-                    style={getSectionHandleStyle(draggingLeftSectionKey === 'active')}
-                    title="Drag to reorder panel sections"
-                  >
-                    ::
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                {activeProject && (
-                  <button
-                    onClick={handleActivateProjectOverview}
-                    className="group w-full text-left rounded border px-2 py-1 transition-colors"
-                    style={projectOverviewSelected
-                      ? { ...S.elevated, borderColor: S.accent, color: S.text }
-                      : { ...S.deeper, color: S.text }
-                    }
-                    title={activeProject.root_path}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 flex items-center gap-2 overflow-hidden">
-                        <span className="text-sm truncate">Project overview</span>
-                      </span>
-                      <span className="mono text-[10px]" style={{ color: projectOverviewSelected ? S.accent : S.zinc }}>
-                        {projectOverviewSelected ? 'Active' : 'Use'}
-                      </span>
-                    </div>
-                    <p className="mono mt-1 truncate" style={{ fontSize: '10px', color: S.zinc }}>{activeProject.root_path}</p>
-                  </button>
-                )}
-                <div className="mt-2 flex-1 min-h-0 border-t pt-2" style={{ borderColor: S.border }}>
-                  <p className="mono mb-1.5 text-xs uppercase tracking-widest" style={{ color: S.muted }}>Subprojects in this project</p>
-                  <div className="space-y-1 h-full min-h-0 overflow-y-auto">
-                    {subprojects.length === 0 && (
-                      <div className="space-y-2">
-                        <p className="mono text-xs" style={{ color: S.dim }}>No subprojects yet. Click Refresh or select the Technical folder.</p>
-                        {subprojectDiscovery && (
-                          <div className="mono rounded border p-2" style={{ backgroundColor: '#000000', borderColor: S.border, color: S.zinc, fontSize: '10px' }}>
-                            <p>Status: {subprojectDiscovery.status}</p>
-                            {subprojectDiscovery.rootPath && <p className="break-words" title={subprojectDiscovery.rootPath}>Root: {subprojectDiscovery.rootPath}</p>}
-                            {subprojectDiscovery.technicalPath
-                              ? <p className="break-words" title={subprojectDiscovery.technicalPath}>Technical: {subprojectDiscovery.technicalPath}</p>
-                              : <p>Technical: not found</p>}
-                            {Number.isFinite(subprojectDiscovery.count) && <p>Folders found: {subprojectDiscovery.count}</p>}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {subprojects.map(subproject => {
-                      const isCurrent = activeSubproject?.id === subproject.id
-                      return (
-                        <button
-                          key={subproject.id}
-                          onClick={() => handleActivateSubproject(subproject)}
-                          className="group w-full text-left rounded border px-2 py-1 transition-colors"
-                          style={isCurrent
-                            ? { ...S.elevated, borderColor: S.accent, color: S.text }
-                            : { ...S.deeper, color: S.text }
-                          }
-                          title={subproject.subproject_path}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="min-w-0 flex items-center gap-2 overflow-hidden">
-                              <span className="text-sm truncate">{subproject.display_name}</span>
-                            </span>
-                            <span className="mono text-[10px]" style={{ color: isCurrent ? S.accent : S.zinc }}>
-                              {isCurrent ? 'Active' : 'Use'}
-                            </span>
-                          </div>
-                          <p className="mono mt-1 truncate" style={{ fontSize: '10px', color: S.zinc }}>{subproject.subproject_path}</p>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            </section>
 
             {leftAdjacentPairs.map(([firstKey, secondKey], index) => (
               <div
@@ -6438,174 +6769,22 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
                     )}
 
                     {key === 'timesheet' && (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-start gap-2">
-                          <input
-                            type="date"
-                            value={timesheetDraft.date}
-                            onChange={event => updateTimesheetDraft('date', event.target.value)}
-                            disabled={!activeProject}
-                            className="w-[125px] shrink-0 rounded border text-xs outline-none disabled:opacity-40"
-                            style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px' }}
-                          />
-                          <input
-                            value={timesheetDraft.task}
-                            onChange={event => updateTimesheetDraft('task', event.target.value)}
-                            onKeyDown={event => event.key === 'Enter' && addTimesheetEntry()}
-                            placeholder="Task / activity"
-                            disabled={!activeProject}
-                            className="min-w-[160px] flex-[1_1_180px] rounded border text-xs outline-none disabled:opacity-40"
-                            style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                          />
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.25"
-                            value={timesheetDraft.hours}
-                            onChange={event => updateTimesheetDraft('hours', event.target.value)}
-                            onKeyDown={event => event.key === 'Enter' && addTimesheetEntry()}
-                            placeholder="Hours"
-                            disabled={!activeProject}
-                            className="w-[78px] shrink-0 rounded border text-xs outline-none disabled:opacity-40"
-                            style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px' }}
-                          />
-                          <textarea
-                            value={timesheetDraft.note}
-                            onChange={event => updateTimesheetDraft('note', event.target.value)}
-                            placeholder="Optional note"
-                            disabled={!activeProject}
-                            rows={getTimesheetNoteRows(timesheetDraft.note)}
-                            className="min-w-[150px] flex-[1_1_150px] resize-none rounded border text-xs outline-none disabled:opacity-40"
-                            style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px', lineHeight: '16px', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                          />
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={addTimesheetEntry}
-                              disabled={!activeProject || !String(timesheetDraft.task ?? '').trim() || !(Number(timesheetDraft.hours) > 0)}
-                              className="text-xs px-2 rounded border transition disabled:opacity-40"
-                              style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text }}
-                            >
-                              Add
-                            </button>
-                            <button
-                              type="button"
-                              onClick={startTimesheetTimer}
-                              disabled={!activeProject || Boolean(timesheetTimer) || !String(timesheetDraft.task ?? '').trim()}
-                              className="text-xs px-2 rounded border transition disabled:opacity-40"
-                              style={{ backgroundColor: S.accent, borderColor: S.accent, color: 'white' }}
-                            >
-                              Start
-                            </button>
-                          </div>
-                        </div>
-                        {timesheetTimer && (
-                          <div className="flex flex-wrap items-center justify-between gap-2 rounded border px-2 py-2" style={S.panel}>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="type-tiny-label" style={{ color: S.dim }}>Running</span>
-                                <span className="min-w-0 whitespace-normal text-sm font-semibold" style={{ color: S.text, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{timesheetTimer.task}</span>
-                                <span className="mono text-xs tabular-nums" style={{ color: S.accent }}>{formatTimesheetElapsed(timesheetTimerElapsedMs)}</span>
-                              </div>
-                              <p className="mono mt-1 break-all text-[10px]" style={{ color: S.zinc }}>
-                                Started {formatTimesheetClock(timesheetTimer.startedAt)} | {timesheetTimer.date}
-                              </p>
-                            </div>
-                            <div className="flex gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={endTimesheetTimer}
-                                className="text-xs px-2 py-1 rounded border transition"
-                                style={{ backgroundColor: S.accent, borderColor: S.accent, color: 'white' }}
-                              >
-                                End Time
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelTimesheetTimer}
-                                className="text-xs px-2 py-1 rounded border transition"
-                                style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.zinc }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
+                      <div className="flex flex-col items-center justify-center gap-3 py-8">
+                        <p className="mono text-xs" style={{ color: S.muted }}>
+                          Timesheet is now program-level — view all projects in one place.
+                        </p>
+                        <button
+                          onClick={() => setTimesheetDrawerOpen(true)}
+                          className="mono text-xs px-3 py-1.5 rounded border transition hover:text-white"
+                          style={{ ...S.elevated, color: S.accentSoft, borderColor: 'rgba(122,92,255,0.4)' }}
+                        >
+                          Open Timesheet ↗
+                        </button>
+                        {timesheetActiveProjectEntries.length > 0 && (
+                          <p className="mono text-[10px]" style={{ color: S.zinc }}>
+                            {timesheetActiveProjectEntries.length} entries · {timesheetTotalHours.toFixed(1)}h for this project
+                          </p>
                         )}
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] gap-2">
-                          <div className="flex min-w-0 items-center gap-2 rounded border px-2 py-1" style={S.panel}>
-                            <span className="type-tiny-label" style={{ color: S.dim }}>Entries</span>
-                            <span className="text-xs font-semibold tabular-nums" style={{ color: S.text }}>{timesheetEntries.length}</span>
-                          </div>
-                          <div className="flex min-w-0 items-center gap-2 rounded border px-2 py-1" style={S.panel}>
-                            <span className="type-tiny-label" style={{ color: S.dim }}>Hours</span>
-                            <span className="text-xs font-semibold tabular-nums" style={{ color: S.text }}>{timesheetTotalHours.toFixed(2)}</span>
-                          </div>
-                          <div className="flex min-w-0 items-center gap-2 rounded border px-2 py-1" style={S.panel}>
-                            <span className="type-tiny-label shrink-0" style={{ color: S.dim }}>Project</span>
-                            <span className="min-w-0 whitespace-normal text-xs font-medium" style={{ color: S.text, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{activeProject?.name ?? 'None'}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          {timesheetGroups.map(group => (
-                            <div key={group.key} className="space-y-1">
-                              <div className="flex items-center justify-between gap-2 border-b px-1 py-1.5" style={{ borderColor: S.border }}>
-                                <span className="type-overline whitespace-normal" style={{ color: S.muted, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{group.label}</span>
-                                <span className="mono text-[10px] rounded px-1.5 py-0.5 shrink-0" style={{ backgroundColor: '#0D0D0F', color: S.accent, border: `1px solid ${S.border}` }}>
-                                  {group.totalHours.toFixed(2)}h
-                                </span>
-                              </div>
-                              <div className="space-y-1 pt-1">
-                                {group.entries.map(entry => (
-                                  <div key={entry.id} className="rounded border p-2" style={S.deeper}>
-                                    <div className="flex flex-wrap items-start gap-2">
-                                      <input
-                                        value={entry.task}
-                                        onChange={event => updateTimesheetEntry(entry.id, 'task', event.target.value)}
-                                        placeholder="Task / activity"
-                                        className="min-w-[160px] flex-[1_1_180px] rounded border text-xs outline-none"
-                                        style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                                      />
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="0.25"
-                                        value={entry.hours}
-                                        onChange={event => updateTimesheetEntry(entry.id, 'hours', event.target.value)}
-                                        placeholder="Hours"
-                                        className="w-[78px] shrink-0 rounded border text-xs outline-none"
-                                        style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px' }}
-                                      />
-                                      <textarea
-                                        value={entry.note}
-                                        onChange={event => updateTimesheetEntry(entry.id, 'note', event.target.value)}
-                                        placeholder="Optional note"
-                                        rows={getTimesheetNoteRows(entry.note)}
-                                        className="min-w-[150px] flex-[1_1_150px] resize-none rounded border text-xs outline-none"
-                                        style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px', lineHeight: '16px', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => removeTimesheetEntry(entry.id)}
-                                        className="mono text-[10px] px-2 rounded border hover:text-white transition shrink-0"
-                                        style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.zinc }}
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                    {(entry.startTime || entry.endTime) && (
-                                      <p className="mono mt-1 text-[10px]" style={{ color: S.zinc }}>
-                                        {formatTimesheetClock(entry.startTime)} - {formatTimesheetClock(entry.endTime)}
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                          {!timesheetEntries.length && (
-                            <p className="mono p-1" style={{ fontSize: '10px', color: S.dim }}>No time entries yet.</p>
-                          )}
-                        </div>
                       </div>
                     )}
 
@@ -6950,7 +7129,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
         </div>
 
         <aside className="w-72 shrink-0 flex flex-col overflow-hidden border-l" style={{ ...S.panel, width: isBoxPopout || rightCollapsed ? '0px' : `${rightWidth}px`, borderLeftWidth: isBoxPopout ? 0 : undefined }}>
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+          <div ref={rightPanelBodyRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col">
 
             {/* Templates */}
             <section
@@ -6959,6 +7138,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               onDragOver={event => handleSectionDragOver(event, draggingRightSectionKey, 'template', setRightSectionOrder, setDraggingRightSectionKey, setRightDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingRightSectionKey, setDraggingRightSectionKey, setRightDropTargetKey, setLandedRightSectionKey) }}
               onDragLeave={() => { if (rightDropTargetKey === 'template') setRightDropTargetKey(null) }}
+              ref={el => { sectionElRefs.current.template = el }}
             >
               <div style={getDropIndicatorStyle(rightDropTargetKey === 'template' && draggingRightSectionKey !== 'template')} />
               <div className="p-3 border-b flex-1 min-h-0 overflow-y-auto" style={{ borderColor: S.border }}>
@@ -7060,6 +7240,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               onDragOver={event => handleSectionDragOver(event, draggingRightSectionKey, 'permanentLinks', setRightSectionOrder, setDraggingRightSectionKey, setRightDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingRightSectionKey, setDraggingRightSectionKey, setRightDropTargetKey, setLandedRightSectionKey) }}
               onDragLeave={() => { if (rightDropTargetKey === 'permanentLinks') setRightDropTargetKey(null) }}
+              ref={el => { sectionElRefs.current.permanentLinks = el }}
             >
               <div style={getDropIndicatorStyle(rightDropTargetKey === 'permanentLinks' && draggingRightSectionKey !== 'permanentLinks')} />
               <div className="p-3 border-b overflow-y-auto" style={{ borderColor: S.border }}>
@@ -7135,6 +7316,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               onDragOver={event => handleSectionDragOver(event, draggingRightSectionKey, 'filing', setRightSectionOrder, setDraggingRightSectionKey, setRightDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingRightSectionKey, setDraggingRightSectionKey, setRightDropTargetKey, setLandedRightSectionKey) }}
               onDragLeave={() => { if (rightDropTargetKey === 'filing') setRightDropTargetKey(null) }}
+              ref={el => { sectionElRefs.current.filing = el }}
             >
               <div style={getDropIndicatorStyle(rightDropTargetKey === 'filing' && draggingRightSectionKey !== 'filing')} />
               <div className="p-3 border-b overflow-y-auto" style={{ borderColor: S.border }}>
@@ -7295,6 +7477,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               onDragOver={event => handleSectionDragOver(event, draggingRightSectionKey, 'gemini', setRightSectionOrder, setDraggingRightSectionKey, setRightDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingRightSectionKey, setDraggingRightSectionKey, setRightDropTargetKey, setLandedRightSectionKey) }}
               onDragLeave={() => { if (rightDropTargetKey === 'gemini') setRightDropTargetKey(null) }}
+              ref={el => { sectionElRefs.current.gemini = el }}
             >
               <div style={getDropIndicatorStyle(rightDropTargetKey === 'gemini' && draggingRightSectionKey !== 'gemini')} />
               <div className="p-3 flex-1 min-h-0 overflow-y-auto">
@@ -7438,6 +7621,7 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
               onDragOver={event => handleSectionDragOver(event, draggingRightSectionKey, 'calendar', setRightSectionOrder, setDraggingRightSectionKey, setRightDropTargetKey)}
               onDrop={event => { event.preventDefault(); finishSectionDrag(draggingRightSectionKey, setDraggingRightSectionKey, setRightDropTargetKey, setLandedRightSectionKey) }}
               onDragLeave={() => { if (rightDropTargetKey === 'calendar') setRightDropTargetKey(null) }}
+              ref={el => { sectionElRefs.current.calendar = el }}
             >
               <div style={getDropIndicatorStyle(rightDropTargetKey === 'calendar' && draggingRightSectionKey !== 'calendar')} />
               <div className="px-3 py-3 flex-1 min-h-0 overflow-y-auto border-t" style={{ borderColor: S.border }}>
@@ -7624,18 +7808,28 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
       </div>
 
       {/* MODALS */}
-      {showCommandPalette && (
-        <CommandPalette
-          activeProject={activeProject}
-          onClose={() => setShowCommandPalette(false)}
-          onRunIndex={handleCommandIndex}
-          onImport={handleCommandImport}
-          onExport={handleCommandExport}
-          onGenerateBrief={handleCommandBrief}
-          onOpenSettings={onOpenSettings}
-        />
+      {layoutTabMenu && (
+        <div
+          className="fixed rounded border shadow-2xl z-[110] overflow-hidden"
+          style={{ top: layoutTabMenu.y, left: layoutTabMenu.x, backgroundColor: '#1C1C20', borderColor: '#34343A' }}
+          onMouseDown={event => event.stopPropagation()}
+        >
+          <button
+            className="block w-full whitespace-nowrap text-left px-3 py-2 text-sm transition hover:bg-[#303038]"
+            style={{ color: S.text }}
+            onClick={() => saveLayoutToTab(layoutTabMenu.id)}
+          >
+            Save current layout
+          </button>
+          <button
+            className="block w-full whitespace-nowrap text-left px-3 py-2 text-sm transition hover:bg-[#303038]"
+            style={{ color: '#FF453A' }}
+            onClick={() => deleteLayoutTab(layoutTabMenu.id)}
+          >
+            Delete tab
+          </button>
+        </div>
       )}
-
       {showNewProject && (
         <CreateProjectModal
           onCreated={handleProjectCreated}
@@ -8334,6 +8528,373 @@ export default function Dashboard({ onOpenSettings, popoutBoxKey = null, popoutS
           </button>
         </div>
       )}
+
+      {subprojectContextMenu && (
+        <div
+          className="fixed rounded border shadow-2xl z-[110] overflow-hidden"
+          style={{ top: subprojectContextMenu.y, left: subprojectContextMenu.x, width: 'max-content', minWidth: 160, maxWidth: 'min(280px, calc(100vw - 24px))', backgroundColor: '#1C1C20', borderColor: '#34343A' }}
+          onMouseDown={event => event.stopPropagation()}
+        >
+          <button
+            onMouseDown={async event => {
+              event.preventDefault()
+              event.stopPropagation()
+              await window.api.fsOpenInExplorer({ dirPath: subprojectContextMenu.path })
+              setSubprojectContextMenu(null)
+            }}
+            className="block w-full whitespace-nowrap text-left px-3 py-2 text-sm hover:bg-[#303038] transition"
+            style={{ color: '#D4D4D8' }}
+          >
+            Open file location
+          </button>
+        </div>
+      )}
+
+      {/* TIMESHEET DRAWER BACKDROP */}
+      {timesheetDrawerOpen && (
+        <div
+          className="fixed inset-0 z-[119]"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setTimesheetDrawerOpen(false)}
+        />
+      )}
+
+      {/* TIMESHEET DRAWER */}
+      <div
+        className="fixed top-0 right-0 h-full z-[120] flex flex-col border-l overflow-hidden"
+        style={{
+          width: '420px',
+          ...S.panel,
+          transform: timesheetDrawerOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 240ms cubic-bezier(0.22,1,0.36,1)',
+        }}
+      >
+        {/* Drawer header */}
+        <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b" style={{ borderColor: S.border }}>
+          <span className="mono text-xs font-semibold" style={{ color: S.text }}>Timesheet</span>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => { window.api.timesheetOpenPopout(); setTimesheetDrawerOpen(false) }}
+              className="mono text-[10px] px-2 py-1 rounded border hover:text-white transition"
+              style={{ ...S.elevated, color: S.zinc }}
+              title="Pop out"
+            >
+              ⧉ Pop out
+            </button>
+            <button
+              onClick={() => setTimesheetDrawerOpen(false)}
+              className="mono text-[10px] px-2 py-1 rounded border hover:text-white transition"
+              style={{ ...S.elevated, color: S.zinc }}
+            >
+              ✕ Close
+            </button>
+          </div>
+        </div>
+
+        {/* Filter row */}
+        <div className="shrink-0 flex gap-2 px-4 py-2 border-b" style={{ borderColor: S.border }}>
+          <select
+            value={timesheetFilterProject}
+            onChange={e => setTimesheetFilterProject(e.target.value)}
+            className="flex-1 rounded border text-xs outline-none"
+            style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '5px 8px' }}
+          >
+            <option value="all">All projects</option>
+            {projects.map(p => (
+              <option key={p.id} value={String(p.id)}>{p.name}</option>
+            ))}
+          </select>
+          <select
+            value={timesheetFilterRange}
+            onChange={e => setTimesheetFilterRange(e.target.value)}
+            className="rounded border text-xs outline-none"
+            style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '5px 8px' }}
+          >
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+            <option value="all">All time</option>
+          </select>
+        </div>
+
+        {/* Stats row */}
+        <div className="shrink-0 flex gap-2 px-4 py-2 border-b" style={{ borderColor: S.border }}>
+          <div className="flex items-center gap-1.5 rounded border px-2 py-1" style={S.elevated}>
+            <span className="mono text-[10px]" style={{ color: S.muted }}>Entries</span>
+            <span className="mono text-xs font-semibold tabular-nums" style={{ color: S.text }}>{timesheetDrawerEntries.length}</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded border px-2 py-1" style={S.elevated}>
+            <span className="mono text-[10px]" style={{ color: S.muted }}>Hours</span>
+            <span className="mono text-xs font-semibold tabular-nums" style={{ color: S.text }}>{timesheetDrawerTotalHours.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Running timer block */}
+        {timesheetTimer && (
+          <div className="shrink-0 mx-4 mt-3 flex flex-wrap items-center justify-between gap-2 rounded border px-3 py-2" style={{ ...S.elevated, borderColor: 'rgba(122,92,255,0.4)' }}>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: S.accent }} />
+                <span className="mono text-[10px]" style={{ color: S.muted }}>Running</span>
+                <span className="min-w-0 whitespace-normal text-xs font-semibold" style={{ color: S.text, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{timesheetTimer.task}</span>
+                <span className="mono text-xs tabular-nums font-semibold" style={{ color: S.accent }}>{formatTimesheetElapsed(timesheetTimerElapsedMs)}</span>
+              </div>
+              <p className="mono mt-0.5 text-[10px]" style={{ color: S.zinc }}>
+                {timesheetTimer.projectName || 'No project'} · Started {formatTimesheetClock(timesheetTimer.startedAt)}
+              </p>
+            </div>
+            <div className="flex gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={endTimesheetTimer}
+                className="mono text-[10px] px-2 py-1 rounded border transition"
+                style={{ backgroundColor: S.accent, borderColor: S.accent, color: 'white' }}
+              >
+                End
+              </button>
+              <button
+                type="button"
+                onClick={cancelTimesheetTimer}
+                className="mono text-[10px] px-2 py-1 rounded border transition"
+                style={{ ...S.elevated, color: S.zinc }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Entry form */}
+        <div className="shrink-0 mx-4 mt-3 flex flex-col gap-1.5 rounded border p-3" style={S.elevated}>
+          <div className="flex gap-1.5">
+            <select
+              value={timesheetDraft.projectId ?? ''}
+              onChange={e => {
+                const proj = projects.find(p => String(p.id) === e.target.value)
+                setTimesheetDraft(prev => ({ ...prev, projectId: proj?.id ?? null, projectName: proj?.name ?? '' }))
+              }}
+              className="flex-1 rounded border text-xs outline-none"
+              style={{ backgroundColor: '#26262C', borderColor: S.border, color: timesheetDraft.projectId ? S.text : S.muted, padding: '6px 8px' }}
+            >
+              <option value="">Select project...</option>
+              {projects.map(p => (
+                <option key={p.id} value={String(p.id)}>{p.name}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={timesheetDraft.date}
+              onChange={e => updateTimesheetDraft('date', e.target.value)}
+              className="w-[130px] shrink-0 rounded border text-xs outline-none"
+              style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px' }}
+            />
+          </div>
+          <div className="flex gap-1.5">
+            <input
+              value={timesheetDraft.task}
+              onChange={e => updateTimesheetDraft('task', e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addTimesheetEntry()}
+              placeholder="Task / activity"
+              className="flex-1 rounded border text-xs outline-none"
+              style={{ backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px' }}
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.25"
+              value={timesheetDraft.hours}
+              onChange={e => updateTimesheetDraft('hours', e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addTimesheetEntry()}
+              placeholder="h"
+              className="rounded border text-xs outline-none"
+              style={{ width: '60px', backgroundColor: '#26262C', borderColor: S.border, color: S.text, padding: '6px 8px' }}
+            />
+          </div>
+          <div className="flex gap-1.5 justify-end">
+            <button
+              type="button"
+              onClick={startTimesheetTimer}
+              disabled={!!timesheetTimer || !String(timesheetDraft.task ?? '').trim()}
+              className="mono text-[10px] px-2.5 py-1.5 rounded border transition disabled:opacity-40"
+              style={{ ...S.elevated, color: S.zinc }}
+            >
+              Start timer
+            </button>
+            <button
+              type="button"
+              onClick={addTimesheetEntry}
+              disabled={!String(timesheetDraft.task ?? '').trim() || !(Number(timesheetDraft.hours) > 0)}
+              className="mono text-[10px] px-2.5 py-1.5 rounded border transition disabled:opacity-40"
+              style={{ backgroundColor: S.accent, borderColor: S.accent, color: 'white' }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* Grouped entries — scrollable */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {timesheetDrawerGroups.map(group => (
+            <div key={group.key} className="space-y-1">
+              <div className="flex items-center justify-between gap-2 border-b pb-1" style={{ borderColor: S.border }}>
+                <span className="mono text-[10px] font-semibold" style={{ color: S.muted }}>{group.label}</span>
+                <span className="mono text-[10px] rounded px-1.5 py-0.5" style={{ backgroundColor: '#0D0D0F', color: S.accent, border: `1px solid ${S.border}` }}>
+                  {group.totalHours.toFixed(2)}h
+                </span>
+              </div>
+              <div className="space-y-1 pt-1">
+                {group.entries.map(entry => {
+                  const pillColors = [S.accent, '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2', '#64D2FF']
+                  const pillColor = pillColors[Math.abs(Number(entry.projectId) || 0) % pillColors.length]
+                  const isEditing = timesheetEditingEntryId === entry.id
+                  if (isEditing && timesheetEditDraft) {
+                    return (
+                      <div key={entry.id} className="rounded border px-2.5 py-2 space-y-2" style={{ ...S.deeper, borderColor: S.accent }}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: pillColor }} />
+                          <span className="mono text-[10px] shrink-0" style={{ color: pillColor }}>{entry.projectName || 'Unknown'}</span>
+                        </div>
+                        <input
+                          className="w-full rounded border px-2 py-1 text-xs outline-none"
+                          style={{ background: '#0D0D0F', borderColor: S.border, color: S.text }}
+                          placeholder="Task"
+                          value={timesheetEditDraft.task}
+                          onChange={ev => setTimesheetEditDraft(d => ({ ...d, task: ev.target.value }))}
+                        />
+                        <div className="flex gap-2">
+                          <div className="flex-1 space-y-1">
+                            <label className="mono text-[10px]" style={{ color: S.muted }}>Date</label>
+                            <input
+                              type="date"
+                              className="w-full rounded border px-2 py-1 text-xs outline-none"
+                              style={{ background: '#0D0D0F', borderColor: S.border, color: S.text }}
+                              value={timesheetEditDraft.date}
+                              onChange={ev => setTimesheetEditDraft(d => ({ ...d, date: ev.target.value }))}
+                            />
+                          </div>
+                          <div className="w-20 space-y-1">
+                            <label className="mono text-[10px]" style={{ color: S.muted }}>Hours</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.25"
+                              className="w-full rounded border px-2 py-1 text-xs outline-none"
+                              style={{ background: '#0D0D0F', borderColor: S.border, color: S.text }}
+                              value={timesheetEditDraft.hours}
+                              onChange={ev => setTimesheetEditDraft(d => ({ ...d, hours: ev.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        {(entry.startTime != null || entry.endTime != null) && (
+                          <div className="flex gap-2">
+                            <div className="flex-1 space-y-1">
+                              <label className="mono text-[10px]" style={{ color: S.muted }}>Start</label>
+                              <input
+                                type="time"
+                                className="w-full rounded border px-2 py-1 text-xs outline-none"
+                                style={{ background: '#0D0D0F', borderColor: S.border, color: S.text }}
+                                value={timesheetEditDraft.startTime ?? ''}
+                                onChange={ev => setTimesheetEditDraft(d => ({ ...d, startTime: ev.target.value }))}
+                              />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <label className="mono text-[10px]" style={{ color: S.muted }}>End</label>
+                              <input
+                                type="time"
+                                className="w-full rounded border px-2 py-1 text-xs outline-none"
+                                style={{ background: '#0D0D0F', borderColor: S.border, color: S.text }}
+                                value={timesheetEditDraft.endTime ?? ''}
+                                onChange={ev => setTimesheetEditDraft(d => ({ ...d, endTime: ev.target.value }))}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <input
+                          className="w-full rounded border px-2 py-1 text-xs outline-none"
+                          style={{ background: '#0D0D0F', borderColor: S.border, color: S.text }}
+                          placeholder="Note (optional)"
+                          value={timesheetEditDraft.note ?? ''}
+                          onChange={ev => setTimesheetEditDraft(d => ({ ...d, note: ev.target.value }))}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => { setTimesheetEditingEntryId(null); setTimesheetEditDraft(null) }}
+                            className="mono text-[10px] px-2 py-1 rounded border transition hover:text-white"
+                            style={{ ...S.elevated, color: S.zinc }}
+                          >Cancel</button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const fields = ['task', 'hours', 'date', 'note', 'startTime', 'endTime']
+                              fields.forEach(f => updateTimesheetEntry(entry.id, f, timesheetEditDraft[f] ?? ''))
+                              setTimesheetEditingEntryId(null)
+                              setTimesheetEditDraft(null)
+                            }}
+                            className="mono text-[10px] px-2 py-1 rounded border transition hover:text-white"
+                            style={{ background: 'rgba(122,92,255,0.15)', borderColor: 'rgba(122,92,255,0.4)', color: S.accent }}
+                          >Save</button>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div key={entry.id} className="flex items-start gap-2 rounded border px-2.5 py-2" style={S.deeper}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: pillColor }} />
+                          <span className="mono text-[10px] shrink-0" style={{ color: pillColor }}>
+                            {entry.projectName || 'Unknown'}
+                          </span>
+                          <span className="text-xs font-medium" style={{ color: S.text, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{entry.task}</span>
+                        </div>
+                        {entry.note && (
+                          <p className="mono mt-0.5 text-[10px]" style={{ color: S.zinc, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{entry.note}</p>
+                        )}
+                        {(entry.startTime || entry.endTime) && (
+                          <p className="mono mt-0.5 text-[10px]" style={{ color: S.dim }}>
+                            {formatTimesheetClock(entry.startTime)} – {formatTimesheetClock(entry.endTime)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="mono shrink-0 text-xs font-semibold tabular-nums" style={{ color: S.text }}>{Number(entry.hours).toFixed(2)}h</span>
+                      <button
+                        type="button"
+                        onClick={() => { setTimesheetEditingEntryId(entry.id); setTimesheetEditDraft({ ...entry }) }}
+                        className="mono shrink-0 text-[10px] px-1.5 py-0.5 rounded border hover:text-white transition"
+                        style={{ ...S.elevated, color: S.zinc }}
+                        title="Edit entry"
+                      >✎</button>
+                      <button
+                        type="button"
+                        onClick={() => removeTimesheetEntry(entry.id)}
+                        className="mono shrink-0 text-[10px] px-1.5 py-0.5 rounded border hover:text-white transition"
+                        style={{ ...S.elevated, color: S.zinc }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          {timesheetDrawerEntries.length === 0 && (
+            <p className="mono text-[10px] text-center py-4" style={{ color: S.dim }}>No time entries for this filter.</p>
+          )}
+        </div>
+
+        {/* Totals footer */}
+        <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-t" style={{ borderColor: S.border }}>
+          <span className="mono text-[10px]" style={{ color: S.muted }}>
+            {timesheetDrawerEntries.length} {timesheetDrawerEntries.length === 1 ? 'entry' : 'entries'}
+          </span>
+          <span className="mono text-xs font-semibold tabular-nums" style={{ color: S.text }}>
+            {timesheetDrawerTotalHours.toFixed(2)}h total
+          </span>
+        </div>
+      </div>
+
+
 
     </div>
   )

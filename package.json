@@ -1,6 +1,6 @@
 {
   "name": "docketos",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Engineering project management tool",
   "main": "dist-electron/main.js",
   "scripts": {

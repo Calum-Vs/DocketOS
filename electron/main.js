@@ -319,6 +319,35 @@ function createDashboardBoxWindow({ boxKey, slotIndex = 0, title, projectId } = 
   return { success: true }
 }
 
+let timesheetPopoutWin = null
+
+function createTimesheetPopoutWindow() {
+  if (timesheetPopoutWin && !timesheetPopoutWin.isDestroyed()) {
+    timesheetPopoutWin.focus()
+    return { success: true }
+  }
+  timesheetPopoutWin = new BrowserWindow({
+    width: 280,
+    height: 210,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: false,
+    backgroundColor: '#111114',
+    webPreferences: {
+      preload: path.join(__dirname, '../dist-electron/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  timesheetPopoutWin.setMenuBarVisibility(false)
+  timesheetPopoutWin.removeMenu()
+  timesheetPopoutWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  loadRendererWindow(timesheetPopoutWin, { window: 'timesheet-popout' })
+  timesheetPopoutWin.on('closed', () => { timesheetPopoutWin = null })
+  return { success: true }
+}
+
 async function indexActiveProjectFiles(projectId = activeProjectId) {
   const active = activeProjectOrError(projectId)
   if (active.error) return { success: false, error: active.error }
@@ -624,6 +653,7 @@ setupFilingHandlers(ipcMain, getActiveProjectId, getActiveProjectRoot)
 // Dashboard windows
 
 ipcMain.handle('dashboard:openBoxWindow', (_e, payload) => createDashboardBoxWindow(payload))
+ipcMain.handle('timesheet:openPopout', () => createTimesheetPopoutWindow())
 
 // Projects
 

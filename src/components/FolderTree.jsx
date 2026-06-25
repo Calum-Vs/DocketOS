@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { getFileCategory, FileTypeIcon } from './fileIcons.jsx'
 
 const COLORS = {
   panel: '#1C1C20',
@@ -63,6 +64,16 @@ function FolderIcon({ open, selected }) {
 
 function LeafIcon() {
   return <span className="block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COLORS.faint }} />
+}
+
+// Directories first, then files; each group sorted naturally by name.
+function sortDirEntries(entries) {
+  return [...entries].sort((a, b) => {
+    const ad = a.isDirectory ? 0 : 1
+    const bd = b.isDirectory ? 0 : 1
+    if (ad !== bd) return ad - bd
+    return a.name.localeCompare(b.name, undefined, { numeric: true })
+  })
 }
 
 function FlagDot({ flag, flagOptions = [] }) {
@@ -149,8 +160,11 @@ function isTechnicalFolderName(value) {
   return /^(\d{1,2})?(technical|techincal)$/.test(normalized)
 }
 
-function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAddQuickLink, onQuickFile, autoExpand = false, allowChildren = true, revealPath = null, nameColumnWidth = 190, onBeginNameColumnResize = null, flagOptions = [], getFileFlag = null, onSetFileFlag = null, onClearFileFlag = null }) {
+function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onOpenFile, onAddQuickLink, onQuickFile, autoExpand = false, allowChildren = true, revealPath = null, nameColumnWidth = 190, onBeginNameColumnResize = null, flagOptions = [], getFileFlag = null, onSetFileFlag = null, onClearFileFlag = null, collapseSignal = 0, expandSignal = 0 }) {
   const [open, setOpen] = useState(depth === 0 || autoExpand)
+
+  useEffect(() => { if (collapseSignal > 0) setOpen(false) }, [collapseSignal])
+  useEffect(() => { if (expandSignal > 0) setOpen(true) }, [expandSignal])
   const [children, setChildren] = useState(null)
   const [loading, setLoading] = useState(false)
   const [menu, setMenu] = useState(null)
@@ -163,8 +177,8 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
   async function loadChildren() {
     if (!allowChildren) return
     setLoading(true)
-    const result = await window.api.fsListFolders({ dirPath: node.fullPath })
-    setChildren(result)
+    const result = await window.api.fsScanDir({ dirPath: node.fullPath })
+    setChildren(sortDirEntries(Array.isArray(result) ? result : []))
     setLoading(false)
   }
 
@@ -306,7 +320,8 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
           boxShadow: selected ? `inset 2px 0 0 ${COLORS.accent}` : 'none',
         }}
         onDragStart={handleDragStart}
-        onClick={() => onSelectFolder?.(node)}
+        onClick={() => { if (allowChildren) onSelectFolder?.(node) }}
+        onDoubleClick={() => { if (!allowChildren) onOpenFile?.(node) }}
         onContextMenu={handleContextMenu}
         title={node.fullPath}
       >
@@ -326,7 +341,7 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
           <span className="grid h-6 w-6 shrink-0 place-items-center"><LeafIcon /></span>
         )}
 
-        <FolderIcon open={open} selected={selected} />
+        {allowChildren ? <FolderIcon open={open} selected={selected} /> : <FileTypeIcon category={getFileCategory(node.name)} />}
         <FlagDot flag={flag} flagOptions={flagOptions} />
 
         {renaming ? (
@@ -439,10 +454,11 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
               onRefresh={onRefresh}
               selectedPath={selectedPath}
               onSelectFolder={onSelectFolder}
+              onOpenFile={onOpenFile}
               onAddQuickLink={onAddQuickLink}
               onQuickFile={onQuickFile}
-              autoExpand={isTechnicalFolderName(child.name)}
-              allowChildren={allowChildren}
+              autoExpand={child.isDirectory && isTechnicalFolderName(child.name)}
+              allowChildren={child.isDirectory}
               revealPath={revealPath}
               nameColumnWidth={nameColumnWidth}
               onBeginNameColumnResize={onBeginNameColumnResize}
@@ -450,6 +466,8 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
               getFileFlag={getFileFlag}
               onSetFileFlag={onSetFileFlag}
               onClearFileFlag={onClearFileFlag}
+              collapseSignal={collapseSignal}
+              expandSignal={expandSignal}
             />
           ))}
         </div>
@@ -457,25 +475,25 @@ function FolderNode({ node, depth, onRefresh, selectedPath, onSelectFolder, onAd
 
       {open && children && children.length === 0 && allowChildren && (
         <div className="px-2 py-1 text-[11px]" style={{ paddingLeft: `${rowLeft + 32}px`, color: COLORS.faint }}>
-          No subfolders
+          Empty folder
         </div>
       )}
     </div>
   )
 }
 
-export default function FolderTree({ rootPath, selectedPath, onSelectFolder, onAddQuickLink, onQuickFile, revealPath = null, nameColumnWidth = 190, onBeginNameColumnResize = null, flagOptions = [], getFileFlag = null, onSetFileFlag = null, onClearFileFlag = null }) {
-  const [rootFolders, setRootFolders] = useState([])
+export default function FolderTree({ rootPath, selectedPath, onSelectFolder, onOpenFile, onAddQuickLink, onQuickFile, revealPath = null, nameColumnWidth = 190, onBeginNameColumnResize = null, flagOptions = [], getFileFlag = null, onSetFileFlag = null, onClearFileFlag = null, collapseSignal = 0, expandSignal = 0 }) {
+  const [rootEntries, setRootEntries] = useState([])
   const [key, setKey] = useState(0)
 
   const refresh = useCallback(() => setKey(current => current + 1), [])
 
   useEffect(() => {
     if (!rootPath) {
-      setRootFolders([])
+      setRootEntries([])
       return
     }
-    window.api.fsListFolders({ dirPath: rootPath }).then(setRootFolders)
+    window.api.fsScanDir({ dirPath: rootPath }).then(result => setRootEntries(sortDirEntries(Array.isArray(result) ? result : [])))
   }, [rootPath, key])
 
   if (!rootPath) {
@@ -484,18 +502,19 @@ export default function FolderTree({ rootPath, selectedPath, onSelectFolder, onA
 
   return (
     <div className="space-y-0.5 pr-1 text-xs">
-      {rootFolders.map(folder => (
+      {rootEntries.map(entry => (
         <FolderNode
-          key={folder.fullPath}
-          node={folder}
+          key={entry.fullPath}
+          node={entry}
           depth={0}
           onRefresh={refresh}
           selectedPath={selectedPath}
           onSelectFolder={onSelectFolder}
+          onOpenFile={onOpenFile}
           onAddQuickLink={onAddQuickLink}
           onQuickFile={onQuickFile}
-          autoExpand={isTechnicalFolderName(folder.name)}
-          allowChildren={true}
+          autoExpand={entry.isDirectory && isTechnicalFolderName(entry.name)}
+          allowChildren={entry.isDirectory}
           revealPath={revealPath}
           nameColumnWidth={nameColumnWidth}
           onBeginNameColumnResize={onBeginNameColumnResize}
@@ -503,9 +522,11 @@ export default function FolderTree({ rootPath, selectedPath, onSelectFolder, onA
           getFileFlag={getFileFlag}
           onSetFileFlag={onSetFileFlag}
           onClearFileFlag={onClearFileFlag}
+          collapseSignal={collapseSignal}
+          expandSignal={expandSignal}
         />
       ))}
-      {rootFolders.length === 0 && <EmptyState>No subfolders found</EmptyState>}
+      {rootEntries.length === 0 && <EmptyState>No files or folders found</EmptyState>}
     </div>
   )
 }
